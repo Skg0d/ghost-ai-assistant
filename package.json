@@ -1,0 +1,14 @@
+{
+  "name": "ghost-ai",
+  "version": "1.0.0",
+  "description": "Invisible AI overlay",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron . --dev"
+  },
+  "dependencies": {
+    "electron": "^33.0.0",
+    "pdf-parse": "^1.1.1"
+  }
+}
