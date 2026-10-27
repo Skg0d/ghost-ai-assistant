@@ -1,5 +1,7 @@
 // Ghost AI - Word Add-in Controller
 const STORAGE_KEY = "ghost_gemini_api_key";
+const STORAGE_THEME = "ghost_addon_theme";
+const STORAGE_OPACITY = "ghost_addon_opacity";
 
 let currentRawMarkdown = "";
 let currentRenderedHtml = "";
@@ -16,6 +18,12 @@ const resultContainer = document.getElementById("result-container");
 const resultView = document.getElementById("result-view");
 const loadingBox = document.getElementById("loading");
 
+// Theme and Opacity elements
+const btnTheme = document.getElementById("btn-theme");
+const opacitySlider = document.getElementById("opacity-slider");
+const opacityVal = document.getElementById("opacity-val");
+
+// Settings Modal elements
 const btnSettings = document.getElementById("btn-settings");
 const apiModal = document.getElementById("api-modal");
 const modalKeyInput = document.getElementById("modal-key-input");
@@ -29,12 +37,50 @@ Office.onReady((info) => {
   }
 });
 
-// Initial check for API key
+// Theme Management (Monochrome Blanco y Negro: Claro / Oscuro)
+function applyTheme(theme) {
+  if (theme === "dark") {
+    document.body.classList.remove("theme-light");
+    document.body.classList.add("theme-dark");
+    btnTheme.textContent = "Modo B/N: Oscuro";
+  } else {
+    document.body.classList.remove("theme-dark");
+    document.body.classList.add("theme-light");
+    btnTheme.textContent = "Modo B/N: Claro";
+  }
+  localStorage.setItem(STORAGE_THEME, theme);
+}
+
+btnTheme.addEventListener("click", () => {
+  const isDark = document.body.classList.contains("theme-dark");
+  applyTheme(isDark ? "light" : "dark");
+});
+
+// Opacity Management
+function applyOpacity(val) {
+  const clamped = Math.max(20, Math.min(100, parseInt(val, 10) || 100));
+  document.body.style.opacity = (clamped / 100).toString();
+  opacityVal.textContent = clamped + "%";
+  opacitySlider.value = clamped;
+  localStorage.setItem(STORAGE_OPACITY, clamped);
+}
+
+opacitySlider.addEventListener("input", (e) => {
+  applyOpacity(e.target.value);
+});
+
+// Load saved preferences
+const savedTheme = localStorage.getItem(STORAGE_THEME) || "light";
+applyTheme(savedTheme);
+
+const savedOpacity = localStorage.getItem(STORAGE_OPACITY) || "100";
+applyOpacity(savedOpacity);
+
+// API Key Management
 function getApiKey() {
   return localStorage.getItem(STORAGE_KEY) || "";
 }
 
-// Modal handlers
 btnSettings.addEventListener("click", () => {
   modalKeyInput.value = getApiKey();
   apiModal.classList.add("active");
@@ -53,7 +99,7 @@ btnModalSave.addEventListener("click", () => {
   }
   localStorage.setItem(STORAGE_KEY, val);
   apiModal.classList.remove("active");
-  alert("✅ API Key guardada con éxito.");
+  alert("API Key guardada con éxito.");
 });
 
 // Clear input
@@ -105,10 +151,10 @@ btnInsertWord.addEventListener("click", async () => {
     return;
   }
 
-  // Format HTML with Word-compatible table borders and styling
+  // Academic monochrome styling for Word document
   const styledHtml = `
-    <div style="font-family: Calibri, 'Segoe UI', sans-serif; font-size: 11pt; color: #000000; line-height: 1.3;">
-      <h3 style="color: #1e3a8a; border-bottom: 2px solid #2563eb; padding-bottom: 4px; margin-top: 14px;">
+    <div style="font-family: Calibri, 'Segoe UI', sans-serif; font-size: 11pt; color: #000000; line-height: 1.35;">
+      <h3 style="color: #000000; border-bottom: 2px solid #000000; padding-bottom: 4px; margin-top: 14px;">
         Desarrollo y Resolución Técnica
       </h3>
       ${currentRenderedHtml}
@@ -122,7 +168,7 @@ btnInsertWord.addEventListener("click", async () => {
         selection.insertHtml(styledHtml, Word.InsertLocation.replace);
         await context.sync();
       });
-      alert("✅ ¡Desarrollo y tablas insertados exitosamente en tu documento de Word!");
+      alert("Desarrollo y tablas insertados exitosamente en tu documento de Word.");
       return;
     } catch (e) {
       console.warn("Word.run insertHtml fallback:", e);
@@ -133,7 +179,7 @@ btnInsertWord.addEventListener("click", async () => {
   if (typeof Office !== "undefined" && Office.context && Office.context.document) {
     Office.context.document.setSelectedDataAsync(styledHtml, { coercionType: Office.CoercionType.Html }, (result) => {
       if (result.status === Office.AsyncResultStatus.Succeeded) {
-        alert("✅ ¡Desarrollo insertado exitosamente en tu Word!");
+        alert("Desarrollo insertado exitosamente en tu Word.");
       } else {
         alert("Error al insertar en Word: " + result.error.message);
       }
@@ -149,7 +195,7 @@ btnInsertWord.addEventListener("click", async () => {
 btnCopyClipboard.addEventListener("click", () => {
   if (!currentRawMarkdown) return;
   navigator.clipboard.writeText(currentRawMarkdown).then(() => {
-    alert("📋 Desarrollo copiado al portapapeles.");
+    alert("Desarrollo copiado al portapapeles.");
   });
 });
 
@@ -190,7 +236,7 @@ btnSolve.addEventListener("click", async () => {
     resultView.innerHTML = currentRenderedHtml;
     resultContainer.style.display = "flex";
   } catch (err) {
-    alert("❌ Error al resolver: " + err.message);
+    alert("Error al resolver: " + err.message);
   } finally {
     btnSolve.disabled = false;
     loadingBox.classList.remove("active");
@@ -301,7 +347,7 @@ async function callGeminiAPI(prompt, apiKey) {
         body: JSON.stringify({
           contents: [{ parts: [{ text: prompt }] }],
           generationConfig: {
-            temperature: 0.15, // Low temperature for high mathematical precision
+            temperature: 0.15,
             maxOutputTokens: 4096,
           },
         }),
