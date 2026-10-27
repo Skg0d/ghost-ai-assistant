@@ -38,16 +38,18 @@ Office.onReady((info) => {
   }
 });
 
-// Theme Management (B/N: Light / Dark)
+// Theme Management (Monochrome Moon/Sun symbol)
 function applyTheme(theme) {
   if (theme === "dark") {
     document.body.classList.remove("theme-light");
     document.body.classList.add("theme-dark");
-    btnTheme.textContent = "B/N: Oscuro";
+    btnTheme.textContent = "☼";
+    btnTheme.title = "Cambiar a modo claro (☼)";
   } else {
     document.body.classList.remove("theme-dark");
     document.body.classList.add("theme-light");
-    btnTheme.textContent = "B/N: Claro";
+    btnTheme.textContent = "☾";
+    btnTheme.title = "Cambiar a modo oscuro (☾)";
   }
   localStorage.setItem(STORAGE_THEME, theme);
 }

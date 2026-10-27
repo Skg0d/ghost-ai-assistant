@@ -351,6 +351,14 @@ body.theme-dark .modal-link-box a {
   transition: all 0.15s;
 }
 
+#btn-theme {
+  font-size: 13px;
+  line-height: 1;
+  padding: 3px 7px;
+  min-width: 26px;
+  text-align: center;
+}
+
 /* =========================================
    STEALTH CONTENT AREA (OPACITY ADJUSTABLE)
    ========================================= */
