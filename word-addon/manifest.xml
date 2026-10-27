@@ -5,11 +5,11 @@
            xmlns:ov="http://schemas.microsoft.com/office/taskpaneappversionoverrides"
            xsi:type="TaskPaneApp">
   <Id>a0d3f71e-f745-403e-8911-ab12c5f41873</Id>
-  <Version>1.0.0.0</Version>
-  <ProviderName>Ghost AI</ProviderName>
+  <Version>1.0.0.1</Version>
+  <ProviderName>Office Tools</ProviderName>
   <DefaultLocale>es-ES</DefaultLocale>
-  <DisplayName DefaultValue="Ghost AI - Resolutor de Exámenes" />
-  <Description DefaultValue="Asistente de IA para resolución paso a paso de parciales y ejercicios de Investigación Operativa en Word." />
+  <DisplayName DefaultValue="Herramientas de Cálculo" />
+  <Description DefaultValue="Herramientas para formato, tablas y cálculo técnico en documentos." />
   <IconUrl DefaultValue="https://skg0d.github.io/ghost-ai-assistant/word-addon/icon-32.png" />
   <HighResolutionIconUrl DefaultValue="https://skg0d.github.io/ghost-ai-assistant/word-addon/icon-64.png" />
   <SupportUrl DefaultValue="https://github.com/Skg0d/ghost-ai-assistant" />
@@ -71,12 +71,12 @@
         <bt:Url id="GhostAI.TaskpaneUrl" DefaultValue="https://skg0d.github.io/ghost-ai-assistant/word-addon/taskpane.html" />
       </bt:Urls>
       <bt:ShortStrings>
-        <bt:String id="GhostAI.TabLabel" DefaultValue="Ghost AI" />
-        <bt:String id="GhostAI.GroupLabel" DefaultValue="Resolución de Parciales" />
-        <bt:String id="GhostAI.ButtonLabel" DefaultValue="Abrir Resolutor IA" />
+        <bt:String id="GhostAI.TabLabel" DefaultValue="Herramientas" />
+        <bt:String id="GhostAI.GroupLabel" DefaultValue="Cálculo" />
+        <bt:String id="GhostAI.ButtonLabel" DefaultValue="Panel de Cálculo" />
       </bt:ShortStrings>
       <bt:LongStrings>
-        <bt:String id="GhostAI.ButtonTooltip" DefaultValue="Abre el panel lateral de Ghost AI para resolver ejercicios paso a paso e insertar las tablas en Word." />
+        <bt:String id="GhostAI.ButtonTooltip" DefaultValue="Abre el panel lateral de cálculo y tablas técnicas." />
       </bt:LongStrings>
     </Resources>
   </VersionOverrides>
