@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Ghost AI - Resolutor de Word</title>
+
+  <!-- Office JavaScript API -->
+  <script src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
+
+  <!-- Marked library for markdown to clean HTML conversion -->
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
+  <link rel="stylesheet" href="taskpane.css" />
+</head>
+<body>
+  <!-- Header -->
+  <header class="app-header">
+    <div class="brand">
+      <span class="dot"></span>
+      Ghost AI Resolutor
+    </div>
+    <button class="btn-icon" id="btn-settings" title="Configurar API Key">
+      ⚙️ API Key
+    </button>
+  </header>
+
+  <!-- Container -->
+  <div class="container">
+    <div>
+      <div class="section-label">Tipo de Ejercicio</div>
+      <select id="exercise-type" class="mode-select">
+        <option value="auto">🎯 Auto-Detectar Ejercicio</option>
+        <option value="simplex">📈 Programación Lineal (Simplex)</option>
+        <option value="pert">🕸️ Diagrama de Redes (PERT / CPM)</option>
+        <option value="arbol">🌳 Árboles de Decisión (VE)</option>
+        <option value="transporte">🚚 Transporte (Costos Mínimos)</option>
+        <option value="teoria">📖 Pregunta Teórica / Desarrollo</option>
+      </select>
+    </div>
+
+    <div>
+      <div class="section-label">
+        <span>Consigna del Ejercicio</span>
+        <button class="btn btn-secondary" id="btn-get-selection" style="padding: 3px 7px; font-size: 11px;" title="Toma el texto resaltado en tu Word">
+          📥 Tomar de Word
+        </button>
+      </div>
+      <textarea id="prompt-input" class="textarea-box" placeholder="Selecciona el ejercicio en tu hoja de Word y toca 'Tomar de Word', o pega la consigna aquí..."></textarea>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn btn-primary" id="btn-solve">
+        ▶ Resolver Paso a Paso
+      </button>
+      <button class="btn btn-secondary" id="btn-clear" style="flex: 0.3;" title="Limpiar">
+        ✕
+      </button>
+    </div>
+
+    <!-- Loading Indicator -->
+    <div id="loading" class="loading-box">
+      <div class="spinner"></div>
+      <span id="loading-text">Calculando tablas y pasos matemáticos...</span>
+    </div>
+
+    <!-- Result Area -->
+    <div id="result-container" style="display: none; flex-direction: column; gap: 8px; flex: 1;">
+      <div class="result-header">
+        <div class="section-label">Desarrollo y Tablas</div>
+        <button class="btn btn-secondary" id="btn-copy-clipboard" style="padding: 3px 8px; font-size: 11px;">
+          📋 Copiar
+        </button>
+      </div>
+
+      <div id="result-view" class="result-card"></div>
+
+      <button class="btn btn-insert" id="btn-insert-word">
+        ⬇ Insertar Desarrollo en mi Word
+      </button>
+    </div>
+  </div>
+
+  <!-- API Key Modal -->
+  <div id="api-modal" class="modal">
+    <div class="modal-box">
+      <h4>🔑 Configurar Gemini API Key</h4>
+      <p>
+        Pega tu clave gratuita de Google Gemini para habilitar el resolutor en tu Word Online.
+      </p>
+      <input type="password" id="modal-key-input" placeholder="Pega tu API Key aquí..." />
+      <div style="font-size: 11px; color: #4f46e5;">
+        👉 Obtener gratis: <a href="https://aistudio.google.com/apikey" target="_blank" style="color: #4f46e5; font-weight: bold;">aistudio.google.com/apikey</a>
+      </div>
+      <div class="btn-row" style="margin-top: 6px;">
+        <button class="btn btn-secondary" id="btn-modal-cancel">Cancelar</button>
+        <button class="btn btn-primary" id="btn-modal-save">Guardar</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="taskpane.js"></script>
+</body>
+</html>
