@@ -11,34 +11,32 @@ body {
   flex-direction: column;
   height: 100vh;
   overflow: hidden;
-  transition: opacity 0.15s ease, background-color 0.2s ease, color 0.2s ease;
+  transition: background-color 0.2s ease, color 0.2s ease;
 }
 
 /* =========================================
-   LIGHT MONOCHROME THEME (Default)
+   LIGHT THEME (Monochrome)
    ========================================= */
 body.theme-light {
   color: #111111;
-  background-color: #fcfcfc;
+  background-color: #ffffff;
 }
 
-body.theme-light .app-header {
-  background: #ffffff;
-  border-bottom: 1px solid #e2e2e2;
-}
-
-body.theme-light .brand {
-  color: #000000;
-}
-
-body.theme-light .brand .dot {
-  background: #000000;
-}
-
-body.theme-light .toolbar-bar {
-  background: #f4f4f4;
+body.theme-light .stealth-bar {
+  background: #f3f3f3;
   border-bottom: 1px solid #e0e0e0;
-  color: #555555;
+  color: #333333;
+}
+
+body.theme-light .btn-stealth {
+  background: #ffffff;
+  border: 1px solid #cccccc;
+  color: #222222;
+}
+
+body.theme-light .btn-stealth:hover {
+  background: #e8e8e8;
+  border-color: #999999;
 }
 
 body.theme-light .opacity-range {
@@ -72,15 +70,13 @@ body.theme-light .btn-primary:hover {
   background: #2b2b2b;
 }
 
-body.theme-light .btn-secondary,
-body.theme-light .btn-icon {
+body.theme-light .btn-secondary {
   background: #ffffff;
   border: 1px solid #cccccc;
   color: #111111;
 }
 
-body.theme-light .btn-secondary:hover,
-body.theme-light .btn-icon:hover {
+body.theme-light .btn-secondary:hover {
   background: #f0f0f0;
   border-color: #888888;
 }
@@ -159,30 +155,28 @@ body.theme-light .modal-link-box a {
 }
 
 /* =========================================
-   DARK MONOCHROME THEME (High Contrast B/N)
+   DARK THEME (Monochrome)
    ========================================= */
 body.theme-dark {
   color: #f5f5f5;
   background-color: #0d0d0d;
 }
 
-body.theme-dark .app-header {
+body.theme-dark .stealth-bar {
   background: #141414;
-  border-bottom: 1px solid #292929;
+  border-bottom: 1px solid #282828;
+  color: #bbbbbb;
 }
 
-body.theme-dark .brand {
-  color: #ffffff;
+body.theme-dark .btn-stealth {
+  background: #1e1e1e;
+  border: 1px solid #383838;
+  color: #eeeeee;
 }
 
-body.theme-dark .brand .dot {
-  background: #ffffff;
-}
-
-body.theme-dark .toolbar-bar {
-  background: #181818;
-  border-bottom: 1px solid #2a2a2a;
-  color: #a0a0a0;
+body.theme-dark .btn-stealth:hover {
+  background: #2b2b2b;
+  border-color: #666666;
 }
 
 body.theme-dark .opacity-range {
@@ -216,15 +210,13 @@ body.theme-dark .btn-primary:hover {
   background: #d6d6d6;
 }
 
-body.theme-dark .btn-secondary,
-body.theme-dark .btn-icon {
+body.theme-dark .btn-secondary {
   background: #1a1a1a;
   border: 1px solid #383838;
   color: #e5e5e5;
 }
 
-body.theme-dark .btn-secondary:hover,
-body.theme-dark .btn-icon:hover {
+body.theme-dark .btn-secondary:hover {
   background: #282828;
   border-color: #666666;
   color: #ffffff;
@@ -305,78 +297,63 @@ body.theme-dark .modal-link-box a {
 }
 
 /* =========================================
-   COMMON LAYOUT & CONTROLS
+   STEALTH TOP BAR (ALWAYS 100% VISIBLE)
    ========================================= */
-
-/* Header */
-.app-header {
-  padding: 9px 12px;
+.stealth-bar {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  padding: 6px 10px;
   gap: 8px;
   flex-shrink: 0;
+  opacity: 1 !important; /* The slider and buttons never fade! */
+  z-index: 100;
 }
 
-.brand {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  font-weight: 700;
-  font-size: 13px;
-  letter-spacing: 0.3px;
-}
-
-.brand .dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-}
-
-.header-actions {
+.opacity-group {
   display: flex;
   align-items: center;
   gap: 6px;
-}
-
-.btn-icon {
-  border-radius: 5px;
-  padding: 4px 8px;
-  font-size: 11px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.15s;
-}
-
-/* Opacity Toolbar */
-.toolbar-bar {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 5px 12px;
-  font-size: 11px;
-  font-weight: 600;
-  flex-shrink: 0;
+  flex: 1;
 }
 
 .toolbar-label {
   font-size: 11px;
+  font-weight: 600;
 }
 
 .opacity-range {
   flex: 1;
   height: 4px;
   cursor: pointer;
+  max-width: 130px;
 }
 
 .opacity-value {
   width: 34px;
-  text-align: right;
   font-size: 11px;
   font-family: Consolas, monospace;
+  font-weight: 600;
 }
 
-/* Main Container */
+.stealth-actions {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.btn-stealth {
+  border-radius: 4px;
+  padding: 3px 8px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+/* =========================================
+   STEALTH CONTENT AREA (OPACITY ADJUSTABLE)
+   ========================================= */
 .container {
   flex: 1;
   display: flex;
@@ -384,6 +361,7 @@ body.theme-dark .modal-link-box a {
   padding: 10px 12px;
   gap: 9px;
   overflow-y: auto;
+  transition: opacity 0.1s ease;
 }
 
 .section-label {

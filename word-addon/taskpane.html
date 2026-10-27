@@ -4,7 +4,10 @@
   <meta charset="UTF-8" />
   <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Ghost AI - Resolutor de Word</title>
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+  <meta http-equiv="Pragma" content="no-cache" />
+  <meta http-equiv="Expires" content="0" />
+  <title>Resolutor</title>
 
   <!-- Office JavaScript API -->
   <script src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
@@ -12,34 +15,24 @@
   <!-- Marked library for markdown to clean HTML conversion -->
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 
-  <link rel="stylesheet" href="taskpane.css" />
+  <link rel="stylesheet" href="taskpane.css?v=2.1" />
 </head>
 <body class="theme-light">
-  <!-- Header -->
-  <header class="app-header">
-    <div class="brand">
-      <span class="dot"></span>
-      Ghost AI Resolutor
+  <!-- Stealth Toolbar: Always 100% visible and crisp -->
+  <div class="stealth-bar" id="stealth-bar">
+    <div class="opacity-group">
+      <span class="toolbar-label">Opacidad:</span>
+      <input type="range" id="opacity-slider" min="5" max="100" value="100" class="opacity-range" />
+      <span id="opacity-val" class="opacity-value">100%</span>
     </div>
-    <div class="header-actions">
-      <button class="btn-icon" id="btn-theme" title="Alternar entre modo blanco y negro (Claro / Oscuro)">
-        Modo B/N: Claro
-      </button>
-      <button class="btn-icon" id="btn-settings" title="Configurar API Key">
-        API Key
-      </button>
+    <div class="stealth-actions">
+      <button class="btn-stealth" id="btn-theme" title="Alternar blanco y negro">B/N</button>
+      <button class="btn-stealth" id="btn-settings" title="Configurar API Key">API Key</button>
     </div>
-  </header>
-
-  <!-- Opacity Control Bar -->
-  <div class="toolbar-bar">
-    <span class="toolbar-label">Opacidad:</span>
-    <input type="range" id="opacity-slider" min="20" max="100" value="100" class="opacity-range" />
-    <span id="opacity-val" class="opacity-value">100%</span>
   </div>
 
-  <!-- Container -->
-  <div class="container">
+  <!-- Content Container: Opacity is dynamically controlled here -->
+  <div class="container" id="stealth-content">
     <div>
       <div class="section-label">Tipo de Ejercicio</div>
       <select id="exercise-type" class="mode-select">
@@ -112,6 +105,6 @@
     </div>
   </div>
 
-  <script src="taskpane.js"></script>
+  <script src="taskpane.js?v=2.1"></script>
 </body>
 </html>

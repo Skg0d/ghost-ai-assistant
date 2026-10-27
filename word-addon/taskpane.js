@@ -1,4 +1,4 @@
-// Ghost AI - Word Add-in Controller
+// Ghost AI - Word Add-in Controller (Stealth Edition)
 const STORAGE_KEY = "ghost_gemini_api_key";
 const STORAGE_THEME = "ghost_addon_theme";
 const STORAGE_OPACITY = "ghost_addon_opacity";
@@ -7,6 +7,7 @@ let currentRawMarkdown = "";
 let currentRenderedHtml = "";
 
 // Elements
+const stealthContent = document.getElementById("stealth-content");
 const promptInput = document.getElementById("prompt-input");
 const exerciseType = document.getElementById("exercise-type");
 const btnSolve = document.getElementById("btn-solve");
@@ -18,7 +19,7 @@ const resultContainer = document.getElementById("result-container");
 const resultView = document.getElementById("result-view");
 const loadingBox = document.getElementById("loading");
 
-// Theme and Opacity elements
+// Stealth Bar Controls
 const btnTheme = document.getElementById("btn-theme");
 const opacitySlider = document.getElementById("opacity-slider");
 const opacityVal = document.getElementById("opacity-val");
@@ -33,20 +34,20 @@ const btnModalCancel = document.getElementById("btn-modal-cancel");
 // Initialize Office.js
 Office.onReady((info) => {
   if (info.host === Office.HostType.Word) {
-    console.log("Ghost AI loaded inside Word host.");
+    console.log("Add-in ready inside Word.");
   }
 });
 
-// Theme Management (Monochrome Blanco y Negro: Claro / Oscuro)
+// Theme Management (B/N: Light / Dark)
 function applyTheme(theme) {
   if (theme === "dark") {
     document.body.classList.remove("theme-light");
     document.body.classList.add("theme-dark");
-    btnTheme.textContent = "Modo B/N: Oscuro";
+    btnTheme.textContent = "B/N: Oscuro";
   } else {
     document.body.classList.remove("theme-dark");
     document.body.classList.add("theme-light");
-    btnTheme.textContent = "Modo B/N: Claro";
+    btnTheme.textContent = "B/N: Claro";
   }
   localStorage.setItem(STORAGE_THEME, theme);
 }
@@ -56,10 +57,12 @@ btnTheme.addEventListener("click", () => {
   applyTheme(isDark ? "light" : "dark");
 });
 
-// Opacity Management
+// Opacity Management: Fades ONLY the content area, preserving the top slider bar crisp and 100% visible
 function applyOpacity(val) {
-  const clamped = Math.max(20, Math.min(100, parseInt(val, 10) || 100));
-  document.body.style.opacity = (clamped / 100).toString();
+  const clamped = Math.max(5, Math.min(100, parseInt(val, 10) || 100));
+  if (stealthContent) {
+    stealthContent.style.opacity = (clamped / 100).toString();
+  }
   opacityVal.textContent = clamped + "%";
   opacitySlider.value = clamped;
   localStorage.setItem(STORAGE_OPACITY, clamped);
