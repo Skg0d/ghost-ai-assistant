@@ -6,6 +6,7 @@ const STORAGE_OPACITY = "ghost_addon_opacity";
 let currentRawMarkdown = "";
 let currentRenderedHtml = "";
 let currentPertOoxml = null;
+let chatHistory = [];
 
 // Elements
 const stealthContent = document.getElementById("stealth-content");
@@ -182,12 +183,17 @@ btnModalSave.addEventListener("click", () => {
   alert("API Key guardada con éxito.");
 });
 
-// Clear input
+// Clear input and reset conversational memory
 btnClear.addEventListener("click", () => {
   promptInput.value = "";
   resultContainer.style.display = "none";
   currentRawMarkdown = "";
   currentRenderedHtml = "";
+  currentPertOoxml = null;
+  chatHistory = [];
+  btnSolve.textContent = "Resolver Paso a Paso";
+  promptInput.placeholder = "Selecciona el ejercicio en tu hoja de Word y toca 'Tomar de Word', o pega la consigna aquí...";
+  if (btnInsertDrawing) btnInsertDrawing.style.display = "none";
 });
 
 // Take selection from Word document
@@ -735,11 +741,11 @@ if (btnTestDrawing) {
   });
 }
 
-// Solve exercise
+// Solve exercise & Multi-turn Conversational Memory
 btnSolve.addEventListener("click", async () => {
   const query = promptInput.value.trim();
   if (!query) {
-    alert("Por favor ingresa o selecciona la consigna del ejercicio a resolver.");
+    alert("Por favor ingresa o selecciona la consigna o tu pregunta de seguimiento.");
     return;
   }
 
@@ -750,17 +756,40 @@ btnSolve.addEventListener("click", async () => {
     return;
   }
 
+  // Format prompt based on whether it is a fresh problem or a follow-up
+  let userPrompt = "";
+  if (chatHistory.length === 0) {
+    const type = exerciseType.value;
+    userPrompt = buildOperationalResearchPrompt(query, type);
+  } else {
+    userPrompt = `PREGUNTA O AJUSTE DE SEGUIMIENTO SOBRE EL EJERCICIO ANTERIOR:
+${query}
+
+REGLAS DE FORMATO:
+- Mantén la coherencia matemática estricta con el ejercicio anterior.
+- Responde directamente al pedido con explicaciones claras o tablas actualizadas.
+- Si presentas tablas, usa formato Markdown completo para Microsoft Word.
+- CERO bloques de código (\`\`\`), CERO LaTeX crudo ($).
+- Si se modifican actividades de la red PERT, incluye al final el bloque actualizado:
+<!-- PERT_DATA: [...] -->`;
+  }
+
+  chatHistory.push({ role: "user", parts: [{ text: userPrompt }] });
+
   // Show loading
   btnSolve.disabled = true;
   loadingBox.classList.add("active");
   resultContainer.style.display = "none";
 
-  const type = exerciseType.value;
-  const prompt = buildOperationalResearchPrompt(query, type);
-
   try {
-    const responseText = await callGeminiAPI(prompt, apiKey);
+    const responseText = await callGeminiAPI(chatHistory, apiKey);
+    chatHistory.push({ role: "model", parts: [{ text: responseText }] });
     currentRawMarkdown = responseText;
+
+    // Switch UI to multi-turn mode
+    btnSolve.textContent = "Preguntar / Ajustar";
+    promptInput.value = "";
+    promptInput.placeholder = "Haz una pregunta de seguimiento, pide un ajuste o toca 'Limpiar' para un nuevo ejercicio...";
 
     // Check if response contains PERT data to generate native Vector Drawing Canvas
     const pertActivities = parsePertTable(responseText);
@@ -774,8 +803,7 @@ btnSolve.addEventListener("click", async () => {
         if (btnInsertDrawing) btnInsertDrawing.style.display = "none";
       }
     } else {
-      currentPertOoxml = null;
-      if (btnInsertDrawing) btnInsertDrawing.style.display = "none";
+      if (!currentPertOoxml && btnInsertDrawing) btnInsertDrawing.style.display = "none";
     }
 
     // Convert markdown to clean HTML with native Word elements
@@ -788,6 +816,7 @@ btnSolve.addEventListener("click", async () => {
     resultView.innerHTML = currentRenderedHtml;
     resultContainer.style.display = "flex";
   } catch (err) {
+    chatHistory.pop(); // Revert user message on error so history stays valid
     alert("Error al resolver: " + err.message);
   } finally {
     btnSolve.disabled = false;
@@ -913,10 +942,14 @@ CONSIGNA DEL EXAMEN:
 ${consigna}`;
 }
 
-// Call Google Gemini API
-async function callGeminiAPI(prompt, apiKey) {
+// Call Google Gemini API (Single prompt or Multi-turn History)
+async function callGeminiAPI(promptOrContents, apiKey) {
   const models = ["gemini-3.5-flash", "gemini-3.5-flash-lite", "gemini-flash-lite-latest", "gemini-flash-latest"];
   let lastError = null;
+
+  const contentsPayload = Array.isArray(promptOrContents)
+    ? promptOrContents
+    : [{ parts: [{ text: promptOrContents }] }];
 
   for (const model of models) {
     try {
@@ -928,7 +961,7 @@ async function callGeminiAPI(prompt, apiKey) {
           "X-goog-api-key": apiKey,
         },
         body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
+          contents: contentsPayload,
           generationConfig: {
             temperature: 0.15,
             maxOutputTokens: 8192,
