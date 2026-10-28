@@ -460,6 +460,16 @@ function parseTreeData(markdownText) {
   return null;
 }
 
+function escapeXml(str) {
+  if (str === null || str === undefined) return "";
+  return String(str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&apos;");
+}
+
 function buildDecisionTreeOoxml(treeData) {
   if (!treeData || !treeData.nodes || treeData.nodes.length < 2) return null;
 
@@ -468,50 +478,70 @@ function buildDecisionTreeOoxml(treeData) {
   const parents = {};
 
   treeData.nodes.forEach(n => {
-    nodesDict[n.id] = n;
-    children[n.id] = [];
-    parents[n.id] = [];
+    const nid = String(n.id).trim();
+    n._id = nid;
+    nodesDict[nid] = n;
+    children[nid] = [];
+    parents[nid] = [];
   });
 
-  treeData.edges.forEach(e => {
-    const u = e.from;
-    const v = e.to;
+  (treeData.edges || []).forEach(e => {
+    const u = String(e.from).trim();
+    const v = String(e.to).trim();
     if (children[u]) children[u].push(v);
     if (parents[v]) parents[v].push(u);
   });
 
   // Find root node (node with 0 parents)
-  const roots = treeData.nodes.filter(n => parents[n.id].length === 0);
-  const rootId = roots.length > 0 ? roots[0].id : treeData.nodes[0].id;
+  const roots = treeData.nodes.filter(n => parents[n._id].length === 0);
+  const rootId = roots.length > 0 ? roots[0]._id : treeData.nodes[0]._id;
 
-  // BFS / DFS depths
+  // BFS / DFS depths (guarantees every node gets a numeric depth)
   const depth = {};
   depth[rootId] = 0;
   const queue = [rootId];
+  const visitedDepth = new Set([rootId]);
   while (queue.length > 0) {
     const curr = queue.shift();
     const d = depth[curr];
     (children[curr] || []).forEach(ch => {
-      depth[ch] = d + 1;
-      queue.push(ch);
+      if (nodesDict[ch] && !visitedDepth.has(ch)) {
+        visitedDepth.add(ch);
+        depth[ch] = d + 1;
+        queue.push(ch);
+      }
     });
   }
+
+  // Default depth for any unreachable nodes
+  Object.keys(nodesDict).forEach(nid => {
+    if (depth[nid] === undefined) depth[nid] = 1;
+  });
 
   const maxDepth = Math.max(...Object.values(depth), 1);
 
   // DFS leaf ordering for 100% planar non-crossing layout
   const leaves = [];
-  function dfsLeaves(curr) {
-    const chList = children[curr] || [];
+  function dfsLeaves(curr, vis = new Set()) {
+    if (vis.has(curr)) return;
+    vis.add(curr);
+    const chList = (children[curr] || []).filter(ch => nodesDict[ch]);
     if (chList.length === 0 || nodesDict[curr]?.type === "terminal") {
       leaves.push(curr);
       return;
     }
-    chList.forEach(ch => dfsLeaves(ch));
+    chList.forEach(ch => dfsLeaves(ch, vis));
   }
   dfsLeaves(rootId);
 
-  // Vertical coordinates (Leaves spaced evenly, parents centered vertically)
+  // Ensure any unreachable leaves are included
+  Object.keys(nodesDict).forEach(nid => {
+    if (!leaves.includes(nid) && ((children[nid] || []).length === 0 || nodesDict[nid]?.type === "terminal")) {
+      leaves.push(nid);
+    }
+  });
+
+  // Vertical coordinates
   const yStart = 220000;
   const deltaY = 380000; // ~1.05 cm per leaf row
   const yPos = {};
@@ -519,23 +549,32 @@ function buildDecisionTreeOoxml(treeData) {
     yPos[leafId] = yStart + idx * deltaY;
   });
 
-  function assignInternalY(curr) {
-    const chList = children[curr] || [];
+  function assignInternalY(curr, vis = new Set()) {
+    if (vis.has(curr)) return yPos[curr] || yStart;
+    vis.add(curr);
+    const chList = (children[curr] || []).filter(ch => nodesDict[ch]);
     if (chList.length === 0 || nodesDict[curr]?.type === "terminal") {
-      return yPos[curr];
+      return yPos[curr] || yStart;
     }
-    const chYs = chList.map(ch => assignInternalY(ch));
-    const currY = Math.round(chYs.reduce((s, v) => s + v, 0) / chYs.length);
+    const chYs = chList.map(ch => assignInternalY(ch, vis));
+    const currY = Math.round(chYs.reduce((s, v) => s + v, 0) / Math.max(1, chYs.length));
     yPos[curr] = currY;
     return currY;
   }
   assignInternalY(rootId);
 
+  // Fallback Y for any remaining node
+  Object.keys(nodesDict).forEach((nid, idx) => {
+    if (yPos[nid] === undefined || isNaN(yPos[nid])) {
+      yPos[nid] = yStart + idx * deltaY;
+    }
+  });
+
   // Horizontal coordinates (dynamic step to fit standard Word margins)
   const xStart = 120000;
   const deltaX = Math.min(1400000, Math.max(1100000, Math.floor(5200000 / Math.max(1, maxDepth))));
   const xPos = {};
-  Object.keys(depth).forEach(nid => {
+  Object.keys(nodesDict).forEach(nid => {
     xPos[nid] = xStart + (depth[nid] || 0) * deltaX;
   });
 
@@ -545,13 +584,205 @@ function buildDecisionTreeOoxml(treeData) {
   const payoffW = 900000;
   const payoffH = 180000;
 
+  // IMPORTANT: docPr uses id="8000". Shapes start at 1001 so there are ZERO duplicate IDs!
+  const docPrId = 8000;
+  let shapeCounter = 1001;
   const shapesXml = [];
-  let shapeId = 9000;
+  const nodeShapeIds = {};
 
-  // 1. Draw Edges first (so shapes overlay connectors cleanly)
-  treeData.edges.forEach(e => {
-    const u = e.from;
-    const v = e.to;
+  // 1. Draw Nodes first so every node gets an exact shapeId
+  treeData.nodes.forEach(n => {
+    const nid = n._id;
+    const ntype = n.type || "decision";
+    const x = Math.round(xPos[nid] || xStart);
+    const y = Math.round(yPos[nid] || yStart);
+    const nodeShapeId = shapeCounter++;
+    nodeShapeIds[nid] = nodeShapeId;
+
+    const rawLabel = String(n.label || nid || "");
+    const labelTxt = escapeXml(rawLabel);
+    const rawVme = String(n.vme || "");
+    const vmeTxt = escapeXml(rawVme);
+
+    if (ntype === "decision") {
+      // Cuadrado de decisión
+      shapesXml.push(`
+        <wps:wsp>
+          <wps:cNvPr id="${nodeShapeId}" name="S${nodeShapeId}"/>
+          <wps:cNvSpPr/>
+          <wps:spPr>
+            <a:xfrm><a:off x="${x}" y="${y}"/><a:ext cx="${decSize}" cy="${decSize}"/></a:xfrm>
+            <a:prstGeom prst="rect"><a:avLst/></a:prstGeom>
+            <a:solidFill><a:srgbClr val="F0F4F8"/></a:solidFill>
+            <a:ln w="19050"><a:solidFill><a:srgbClr val="1E3A8A"/></a:solidFill></a:ln>
+          </wps:spPr>
+          <wps:txbx>
+            <w:txbxContent>
+              <w:p>
+                <w:pPr>
+                  <w:jc w:val="center"/>
+                  <w:spacing w:line="160" w:lineRule="auto" w:before="0" w:after="0"/>
+                  <w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/><w:b/><w:sz w:val="15"/><w:color w:val="1E3A8A"/></w:rPr>
+                </w:pPr>
+                <w:r>
+                  <w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/><w:b/><w:sz w:val="15"/><w:color w:val="1E3A8A"/></w:rPr>
+                  <w:t>${labelTxt}</w:t>
+                </w:r>
+              </w:p>
+            </w:txbxContent>
+          </wps:txbx>
+          <wps:bodyPr anchor="ctr" lIns="2000" rIns="2000" tIns="2000" bIns="2000"/>
+        </wps:wsp>
+      `);
+
+      if (vmeTxt) {
+        const vmeId = shapeCounter++;
+        shapesXml.push(`
+          <wps:wsp>
+            <wps:cNvPr id="${vmeId}" name="S${vmeId}"/>
+            <wps:cNvSpPr/>
+            <wps:spPr>
+              <a:xfrm><a:off x="${x - 150000}" y="${y - 150000}"/><a:ext cx="${decSize + 300000}" cy="140000"/></a:xfrm>
+              <a:prstGeom prst="rect"><a:avLst/></a:prstGeom>
+              <a:ln><a:noFill/></a:ln>
+            </wps:spPr>
+            <wps:txbx>
+              <w:txbxContent>
+                <w:p>
+                  <w:pPr>
+                    <w:jc w:val="center"/>
+                    <w:spacing w:line="140" w:lineRule="auto" w:before="0" w:after="0"/>
+                    <w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/><w:b/><w:sz w:val="13"/><w:color w:val="1E3A8A"/></w:rPr>
+                  </w:pPr>
+                  <w:r>
+                    <w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/><w:b/><w:sz w:val="13"/><w:color w:val="1E3A8A"/></w:rPr>
+                    <w:t>[${vmeTxt}]</w:t>
+                  </w:r>
+                </w:p>
+              </w:txbxContent>
+            </wps:txbx>
+            <wps:bodyPr anchor="ctr" lIns="1000" rIns="1000" tIns="1000" bIns="1000"/>
+          </wps:wsp>
+        `);
+      }
+    } else if (ntype === "chance") {
+      // Círculo de azar
+      shapesXml.push(`
+        <wps:wsp>
+          <wps:cNvPr id="${nodeShapeId}" name="S${nodeShapeId}"/>
+          <wps:cNvSpPr/>
+          <wps:spPr>
+            <a:xfrm><a:off x="${x}" y="${y}"/><a:ext cx="${chanceSize}" cy="${chanceSize}"/></a:xfrm>
+            <a:prstGeom prst="ellipse"><a:avLst/></a:prstGeom>
+            <a:solidFill><a:srgbClr val="FEF3C7"/></a:solidFill>
+            <a:ln w="19050"><a:solidFill><a:srgbClr val="D97706"/></a:solidFill></a:ln>
+          </wps:spPr>
+          <wps:txbx>
+            <w:txbxContent>
+              <w:p>
+                <w:pPr>
+                  <w:jc w:val="center"/>
+                  <w:spacing w:line="160" w:lineRule="auto" w:before="0" w:after="0"/>
+                  <w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/><w:b/><w:sz w:val="15"/><w:color w:val="92400E"/></w:rPr>
+                </w:pPr>
+                <w:r>
+                  <w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/><w:b/><w:sz w:val="15"/><w:color w:val="92400E"/></w:rPr>
+                  <w:t>${labelTxt}</w:t>
+                </w:r>
+              </w:p>
+            </w:txbxContent>
+          </wps:txbx>
+          <wps:bodyPr anchor="ctr" lIns="2000" rIns="2000" tIns="2000" bIns="2000"/>
+        </wps:wsp>
+      `);
+
+      if (vmeTxt) {
+        const vmeId = shapeCounter++;
+        shapesXml.push(`
+          <wps:wsp>
+            <wps:cNvPr id="${vmeId}" name="S${vmeId}"/>
+            <wps:cNvSpPr/>
+            <wps:spPr>
+              <a:xfrm><a:off x="${x - 150000}" y="${y - 150000}"/><a:ext cx="${chanceSize + 300000}" cy="140000"/></a:xfrm>
+              <a:prstGeom prst="rect"><a:avLst/></a:prstGeom>
+              <a:ln><a:noFill/></a:ln>
+            </wps:spPr>
+            <wps:txbx>
+              <w:txbxContent>
+                <w:p>
+                  <w:pPr>
+                    <w:jc w:val="center"/>
+                    <w:spacing w:line="140" w:lineRule="auto" w:before="0" w:after="0"/>
+                    <w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/><w:b/><w:sz w:val="13"/><w:color w:val="B45309"/></w:rPr>
+                  </w:pPr>
+                  <w:r>
+                    <w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/><w:b/><w:sz w:val="13"/><w:color w:val="B45309"/></w:rPr>
+                    <w:t>VME=${vmeTxt}</w:t>
+                  </w:r>
+                </w:p>
+              </w:txbxContent>
+            </wps:txbx>
+            <wps:bodyPr anchor="ctr" lIns="1000" rIns="1000" tIns="1000" bIns="1000"/>
+          </wps:wsp>
+        `);
+      }
+    } else if (ntype === "terminal") {
+      // Triángulo terminal apuntando a la derecha
+      const rawPayoff = String(n.payoff || "");
+      const payoffVal = escapeXml(rawPayoff || rawLabel);
+      const isNegative = payoffVal.includes("-");
+      const payoffClr = isNegative ? "991B1B" : "166534";
+
+      shapesXml.push(`
+        <wps:wsp>
+          <wps:cNvPr id="${nodeShapeId}" name="S${nodeShapeId}"/>
+          <wps:cNvSpPr/>
+          <wps:spPr>
+            <a:xfrm rot="5400000"><a:off x="${x}" y="${y}"/><a:ext cx="${termSize}" cy="${termSize}"/></a:xfrm>
+            <a:prstGeom prst="triangle"><a:avLst/></a:prstGeom>
+            <a:solidFill><a:srgbClr val="${payoffClr}"/></a:solidFill>
+            <a:ln w="12700"><a:solidFill><a:srgbClr val="${payoffClr}"/></a:solidFill></a:ln>
+          </wps:spPr>
+          <wps:bodyPr/>
+        </wps:wsp>
+      `);
+
+      // Payoff text box right next to triangle
+      const payId = shapeCounter++;
+      shapesXml.push(`
+        <wps:wsp>
+          <wps:cNvPr id="${payId}" name="S${payId}"/>
+          <wps:cNvSpPr/>
+          <wps:spPr>
+            <a:xfrm><a:off x="${x + termSize + 40000}" y="${y - 20000}"/><a:ext cx="${payoffW}" cy="${payoffH}"/></a:xfrm>
+            <a:prstGeom prst="rect"><a:avLst/></a:prstGeom>
+            <a:ln><a:noFill/></a:ln>
+          </wps:spPr>
+          <wps:txbx>
+            <w:txbxContent>
+              <w:p>
+                <w:pPr>
+                  <w:jc w:val="left"/>
+                  <w:spacing w:line="160" w:lineRule="auto" w:before="0" w:after="0"/>
+                  <w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/><w:b/><w:sz w:val="16"/><w:color w:val="${payoffClr}"/></w:rPr>
+                </w:pPr>
+                <w:r>
+                  <w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/><w:b/><w:sz w:val="16"/><w:color w:val="${payoffClr}"/></w:rPr>
+                  <w:t>${payoffVal}</w:t>
+                </w:r>
+              </w:p>
+            </w:txbxContent>
+          </wps:txbx>
+          <wps:bodyPr anchor="ctr" lIns="1000" rIns="1000" tIns="1000" bIns="1000"/>
+        </wps:wsp>
+      `);
+    }
+  });
+
+  // 2. Draw Connectors and Labels
+  (treeData.edges || []).forEach(e => {
+    const u = String(e.from).trim();
+    const v = String(e.to).trim();
     const uNode = nodesDict[u];
     const vNode = nodesDict[v];
     if (!uNode || !vNode) return;
@@ -560,12 +791,12 @@ function buildDecisionTreeOoxml(treeData) {
     const vType = vNode.type || "terminal";
 
     const uW = uType === "decision" ? decSize : chanceSize;
-    const x1 = xPos[u] + uW;
-    const y1 = yPos[u] + Math.floor(uW / 2);
+    const x1 = Math.round((xPos[u] || xStart) + uW);
+    const y1 = Math.round((yPos[u] || yStart) + Math.floor(uW / 2));
 
-    const x2 = xPos[v];
+    const x2 = Math.round(xPos[v] || (xStart + deltaX));
     const vW = vType === "terminal" ? termSize : (vType === "decision" ? decSize : chanceSize);
-    const y2 = yPos[v] + Math.floor(vW / 2);
+    const y2 = Math.round((yPos[v] || yStart) + Math.floor(vW / 2));
 
     const minX = Math.min(x1, x2);
     const minY = Math.min(y1, y2);
@@ -574,15 +805,22 @@ function buildDecisionTreeOoxml(treeData) {
     const flipH = x2 < x1 ? ' flipH="1"' : '';
     const flipV = y2 < y1 ? ' flipV="1"' : '';
 
-    const connId = shapeId++;
+    const connId = shapeCounter++;
     const isOptimal = !!e.optimal;
     const lineW = isOptimal ? 25400 : 12700;
     const lineClr = isOptimal ? "0284C7" : "333333";
 
+    const srcId = nodeShapeIds[u];
+    const dstId = nodeShapeIds[v];
+
+    const cxnXml = (srcId && dstId)
+      ? `<wps:cNvCnPr><a:stCxn id="${srcId}" idx="3"/><a:endCxn id="${dstId}" idx="1"/></wps:cNvCnPr>`
+      : `<wps:cNvSpPr/>`;
+
     shapesXml.push(`
       <wps:wsp>
-        <wps:cNvPr id="${connId}" name="Edge_${u}_${v}"/>
-        <wps:cNvCnPr/>
+        <wps:cNvPr id="${connId}" name="S${connId}"/>
+        ${cxnXml}
         <wps:spPr>
           <a:xfrm${flipH}${flipV}><a:off x="${minX}" y="${minY}"/><a:ext cx="${cx}" cy="${cy}"/></a:xfrm>
           <a:prstGeom prst="straightConnector1"><a:avLst/></a:prstGeom>
@@ -594,15 +832,20 @@ function buildDecisionTreeOoxml(treeData) {
       </wps:wsp>
     `);
 
-    // Branch Label (Alternative, Probability, Cost)
-    const lblText = e.label || "";
-    const probText = e.prob || "";
-    const costText = e.cost || "";
+    // Branch Label
+    const rawLbl = String(e.label || "");
+    const rawProb = String(e.prob || "");
+    const rawCost = String(e.cost || "");
+
+    const lblText = escapeXml(rawLbl);
+    const probText = escapeXml(rawProb);
+    const costText = escapeXml(rawCost);
+
     const hasSub = !!(probText || (costText && costText !== "0"));
     const subText = probText ? `p = ${probText}` : ((costText && costText !== "0") ? `[${costText}]` : "");
 
     if (lblText || subText) {
-      const lblId = shapeId++;
+      const lblId = shapeCounter++;
       const midX = Math.floor((x1 + x2) / 2);
       const midY = Math.floor((y1 + y2) / 2);
       const lblW = Math.min(1100000, cx);
@@ -632,7 +875,7 @@ function buildDecisionTreeOoxml(treeData) {
 
       shapesXml.push(`
         <wps:wsp>
-          <wps:cNvPr id="${lblId}" name="Lbl_${u}_${v}"/>
+          <wps:cNvPr id="${lblId}" name="S${lblId}"/>
           <wps:cNvSpPr/>
           <wps:spPr>
             <a:xfrm><a:off x="${lblX}" y="${lblY}"/><a:ext cx="${lblW}" cy="${lblH}"/></a:xfrm>
@@ -654,193 +897,8 @@ function buildDecisionTreeOoxml(treeData) {
               </w:p>
               ${subP}
             </w:txbxContent>
-          </w:txbx>
-          <wps:bodyPr anchor="ctr" lIns="0" rIns="0" tIns="0" bIns="0"/>
-        </wps:wsp>
-      `);
-    }
-  });
-
-  // 2. Draw Nodes (Decision: Square, Chance: Circle, Terminal: Triangle)
-  treeData.nodes.forEach(n => {
-    const nid = n.id;
-    const ntype = n.type || "decision";
-    const x = xPos[nid];
-    const y = yPos[nid];
-    const nodeId = shapeId++;
-
-    const labelTxt = n.label || nid;
-    const vmeTxt = n.vme || "";
-
-    if (ntype === "decision") {
-      // Cuadrado de decisión
-      shapesXml.push(`
-        <wps:wsp>
-          <wps:cNvPr id="${nodeId}" name="Dec_${nid}"/>
-          <wps:cNvSpPr/>
-          <wps:spPr>
-            <a:xfrm><a:off x="${x}" y="${y}"/><a:ext cx="${decSize}" cy="${decSize}"/></a:xfrm>
-            <a:prstGeom prst="rect"><a:avLst/></a:prstGeom>
-            <a:solidFill><a:srgbClr val="F0F4F8"/></a:solidFill>
-            <a:ln w="19050"><a:solidFill><a:srgbClr val="1E3A8A"/></a:solidFill></a:ln>
-          </wps:spPr>
-          <wps:txbx>
-            <w:txbxContent>
-              <w:p>
-                <w:pPr>
-                  <w:jc w:val="center"/>
-                  <w:spacing w:line="160" w:lineRule="auto" w:before="0" w:after="0"/>
-                  <w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/><w:b/><w:sz w:val="15"/><w:color w:val="1E3A8A"/></w:rPr>
-                </w:pPr>
-                <w:r>
-                  <w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/><w:b/><w:sz w:val="15"/><w:color w:val="1E3A8A"/></w:rPr>
-                  <w:t>${labelTxt}</w:t>
-                </w:r>
-              </w:p>
-            </w:txbxContent>
-          </w:txbx>
-          <wps:bodyPr anchor="ctr" lIns="0" rIns="0" tIns="0" bIns="0"/>
-        </wps:wsp>
-      `);
-
-      if (vmeTxt) {
-        const vmeId = shapeId++;
-        shapesXml.push(`
-          <wps:wsp>
-            <wps:cNvPr id="${vmeId}" name="VME_${nid}"/>
-            <wps:cNvSpPr/>
-            <wps:spPr>
-              <a:xfrm><a:off x="${x - 150000}" y="${y - 150000}"/><a:ext cx="${decSize + 300000}" cy="140000"/></a:xfrm>
-              <a:prstGeom prst="rect"><a:avLst/></a:prstGeom>
-              <a:ln><a:noFill/></a:ln>
-            </wps:spPr>
-            <wps:txbx>
-              <w:txbxContent>
-                <w:p>
-                  <w:pPr>
-                    <w:jc w:val="center"/>
-                    <w:spacing w:line="140" w:lineRule="auto" w:before="0" w:after="0"/>
-                    <w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/><w:b/><w:sz w:val="13"/><w:color w:val="1E3A8A"/></w:rPr>
-                  </w:pPr>
-                  <w:r>
-                    <w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/><w:b/><w:sz w:val="13"/><w:color w:val="1E3A8A"/></w:rPr>
-                    <w:t>[${vmeTxt}]</w:t>
-                  </w:r>
-                </w:p>
-              </w:txbxContent>
-            </w:txbx>
-            <wps:bodyPr anchor="ctr" lIns="0" rIns="0" tIns="0" bIns="0"/>
-          </wps:wsp>
-        `);
-      }
-    } else if (ntype === "chance") {
-      // Círculo de probabilidad / azar
-      shapesXml.push(`
-        <wps:wsp>
-          <wps:cNvPr id="${nodeId}" name="Chance_${nid}"/>
-          <wps:cNvSpPr/>
-          <wps:spPr>
-            <a:xfrm><a:off x="${x}" y="${y}"/><a:ext cx="${chanceSize}" cy="${chanceSize}"/></a:xfrm>
-            <a:prstGeom prst="ellipse"><a:avLst/></a:prstGeom>
-            <a:solidFill><a:srgbClr val="FEF3C7"/></a:solidFill>
-            <a:ln w="19050"><a:solidFill><a:srgbClr val="D97706"/></a:solidFill></a:ln>
-          </wps:spPr>
-          <wps:txbx>
-            <w:txbxContent>
-              <w:p>
-                <w:pPr>
-                  <w:jc w:val="center"/>
-                  <w:spacing w:line="160" w:lineRule="auto" w:before="0" w:after="0"/>
-                  <w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/><w:b/><w:sz w:val="15"/><w:color w:val="92400E"/></w:rPr>
-                </w:pPr>
-                <w:r>
-                  <w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/><w:b/><w:sz w:val="15"/><w:color w:val="92400E"/></w:rPr>
-                  <w:t>${labelTxt}</w:t>
-                </w:r>
-              </w:p>
-            </w:txbxContent>
-          </w:txbx>
-          <wps:bodyPr anchor="ctr" lIns="0" rIns="0" tIns="0" bIns="0"/>
-        </wps:wsp>
-      `);
-
-      if (vmeTxt) {
-        const vmeId = shapeId++;
-        shapesXml.push(`
-          <wps:wsp>
-            <wps:cNvPr id="${vmeId}" name="VME_${nid}"/>
-            <wps:cNvSpPr/>
-            <wps:spPr>
-              <a:xfrm><a:off x="${x - 150000}" y="${y - 150000}"/><a:ext cx="${chanceSize + 300000}" cy="140000"/></a:xfrm>
-              <a:prstGeom prst="rect"><a:avLst/></a:prstGeom>
-              <a:ln><a:noFill/></a:ln>
-            </wps:spPr>
-            <wps:txbx>
-              <w:txbxContent>
-                <w:p>
-                  <w:pPr>
-                    <w:jc w:val="center"/>
-                    <w:spacing w:line="140" w:lineRule="auto" w:before="0" w:after="0"/>
-                    <w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/><w:b/><w:sz w:val="13"/><w:color w:val="B45309"/></w:rPr>
-                  </w:pPr>
-                  <w:r>
-                    <w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/><w:b/><w:sz w:val="13"/><w:color w:val="B45309"/></w:rPr>
-                    <w:t>VME=${vmeTxt}</w:t>
-                  </w:r>
-                </w:p>
-              </w:txbxContent>
-            </w:txbx>
-            <wps:bodyPr anchor="ctr" lIns="0" rIns="0" tIns="0" bIns="0"/>
-          </wps:wsp>
-        `);
-      }
-    } else if (ntype === "terminal") {
-      // Triángulo terminal apuntando a la derecha (rot=5400000 = 90 deg)
-      const payoffVal = n.payoff || "";
-      const isNegative = payoffVal.includes("-");
-      const payoffClr = isNegative ? "991B1B" : "166534";
-
-      shapesXml.push(`
-        <wps:wsp>
-          <wps:cNvPr id="${nodeId}" name="Term_${nid}"/>
-          <wps:cNvSpPr/>
-          <wps:spPr>
-            <a:xfrm rot="5400000"><a:off x="${x}" y="${y}"/><a:ext cx="${termSize}" cy="${termSize}"/></a:xfrm>
-            <a:prstGeom prst="triangle"><a:avLst/></a:prstGeom>
-            <a:solidFill><a:srgbClr val="${payoffClr}"/></a:solidFill>
-            <a:ln w="12700"><a:solidFill><a:srgbClr val="${payoffClr}"/></a:solidFill></a:ln>
-          </wps:spPr>
-          <wps:bodyPr/>
-        </wps:wsp>
-      `);
-
-      // Payoff text box right next to triangle
-      const payId = shapeId++;
-      shapesXml.push(`
-        <wps:wsp>
-          <wps:cNvPr id="${payId}" name="Pay_${nid}"/>
-          <wps:cNvSpPr/>
-          <wps:spPr>
-            <a:xfrm><a:off x="${x + termSize + 40000}" y="${y - 20000}"/><a:ext cx="${payoffW}" cy="${payoffH}"/></a:xfrm>
-            <a:prstGeom prst="rect"><a:avLst/></a:prstGeom>
-            <a:ln><a:noFill/></a:ln>
-          </wps:spPr>
-          <wps:txbx>
-            <w:txbxContent>
-              <w:p>
-                <w:pPr>
-                  <w:jc w:val="left"/>
-                  <w:spacing w:line="160" w:lineRule="auto" w:before="0" w:after="0"/>
-                  <w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/><w:b/><w:sz w:val="16"/><w:color w:val="${payoffClr}"/></w:rPr>
-                </w:pPr>
-                <w:r>
-                  <w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/><w:b/><w:sz w:val="16"/><w:color w:val="${payoffClr}"/></w:rPr>
-                  <w:t>${payoffVal}</w:t>
-                </w:r>
-              </w:p>
-            </w:txbxContent>
-          </w:txbx>
-          <wps:bodyPr anchor="ctr" lIns="0" rIns="0" tIns="0" bIns="0"/>
+          </wps:txbx>
+          <wps:bodyPr anchor="ctr" lIns="1000" rIns="1000" tIns="1000" bIns="1000"/>
         </wps:wsp>
       `);
     }
@@ -860,7 +918,7 @@ function buildDecisionTreeOoxml(treeData) {
       <wp:inline>
         <wp:extent cx="${maxX}" cy="${maxY}"/>
         <wp:effectExtent l="0" t="0" r="0" b="0"/>
-        <wp:docPr id="9000" name="Árbol de Decisión"/>
+        <wp:docPr id="${docPrId}" name="ArbolDecision"/>
         <wp:cNvGraphicFramePr><a:graphicFrameLocks/></wp:cNvGraphicFramePr>
         <a:graphic>
           <a:graphicData uri="http://schemas.microsoft.com/office/word/2010/wordprocessingGroup">
@@ -1312,6 +1370,9 @@ if (btnInsertDrawing) {
       return;
     }
 
+    let inserted = false;
+
+    // 1. Primary method: Word.run with insertOoxml
     if (typeof Word !== "undefined" && Word.run) {
       try {
         await Word.run(async (context) => {
@@ -1320,26 +1381,30 @@ if (btnInsertDrawing) {
           range.select("End");
           await context.sync();
         });
-        showToast("✓ Diagrama insertado en la posición del cursor");
+        inserted = true;
+        showToast("✓ Diagrama vectorial insertado en la posición del cursor");
         return;
       } catch (e) {
-        console.warn("Word.run insertOoxml fallback:", e);
-        showToast("Error al insertar: " + e.message);
+        console.warn("Word.run insertOoxml failed, attempting fallback:", e);
       }
     }
 
-    if (typeof Office !== "undefined" && Office.context && Office.context.document) {
+    // 2. Secondary method: setSelectedDataAsync fallback
+    if (!inserted && typeof Office !== "undefined" && Office.context && Office.context.document) {
       Office.context.document.setSelectedDataAsync(ooxmlToInsert, { coercionType: Office.CoercionType.Ooxml }, (result) => {
         if (result.status === Office.AsyncResultStatus.Succeeded) {
-          showToast("✓ Diagrama insertado en la posición del cursor");
+          showToast("✓ Diagrama vectorial insertado en la posición del cursor");
         } else {
-          showToast("Error al insertar: " + result.error.message);
+          console.error("setSelectedDataAsync error:", result.error);
+          showToast("Error al insertar: ubica el cursor en un párrafo vacío fuera de tablas o figuras y reintenta.");
         }
       });
       return;
     }
 
-    showToast("Abre el complemento dentro de Word para insertar.");
+    if (!inserted) {
+      showToast("Abre el complemento dentro de Word para insertar.");
+    }
   });
 }
 
