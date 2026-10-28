@@ -6,6 +6,7 @@ const STORAGE_OPACITY = "ghost_addon_opacity";
 let currentRawMarkdown = "";
 let currentRenderedHtml = "";
 let currentPertOoxml = null;
+let currentDiagramOoxml = null;
 let chatHistory = [];
 let chatTurns = [];
 let activeTurnIndex = -1;
@@ -220,6 +221,7 @@ btnClear.addEventListener("click", () => {
   currentRawMarkdown = "";
   currentRenderedHtml = "";
   currentPertOoxml = null;
+  currentDiagramOoxml = null;
   chatHistory = [];
   chatTurns = [];
   activeTurnIndex = -1;
@@ -421,6 +423,493 @@ function parsePertTable(markdownText) {
   }
 
   return activities;
+}
+
+// ==========================================
+// DECISION TREE DATA PARSER & OOXML BUILDER
+// ==========================================
+
+function parseTreeData(markdownText) {
+  if (!markdownText) return null;
+
+  // 1. Primary: Extract from hidden HTML comment
+  const commentMatch = markdownText.match(/<!--\s*(?:TREE_DATA|ARBOL_DATA|DECISION_TREE|TREE):\s*([\s\S]*?)-->/i);
+  let rawJson = null;
+  if (commentMatch) {
+    rawJson = commentMatch[1].trim();
+  } else {
+    // 2. Fallback: Check for JSON code block containing "nodes" and "edges"
+    const codeMatch = markdownText.match(/```(?:json)?\s*(\{\s*"nodes"[\s\S]*?"edges"[\s\S]*?\})\s*```/i);
+    if (codeMatch) rawJson = codeMatch[1].trim();
+  }
+
+  if (rawJson) {
+    try {
+      rawJson = rawJson.replace(/^```json\s*/i, "").replace(/```\s*$/, "").trim();
+      // Clean trailing commas before } or ]
+      rawJson = rawJson.replace(/,\s*([\]}])/g, "$1");
+      const data = JSON.parse(rawJson);
+      if (data && Array.isArray(data.nodes) && Array.isArray(data.edges) && data.nodes.length >= 2) {
+        return data;
+      }
+    } catch (e) {
+      console.warn("Failed to parse TREE_DATA JSON:", e);
+    }
+  }
+
+  return null;
+}
+
+function buildDecisionTreeOoxml(treeData) {
+  if (!treeData || !treeData.nodes || treeData.nodes.length < 2) return null;
+
+  const nodesDict = {};
+  const children = {};
+  const parents = {};
+
+  treeData.nodes.forEach(n => {
+    nodesDict[n.id] = n;
+    children[n.id] = [];
+    parents[n.id] = [];
+  });
+
+  treeData.edges.forEach(e => {
+    const u = e.from;
+    const v = e.to;
+    if (children[u]) children[u].push(v);
+    if (parents[v]) parents[v].push(u);
+  });
+
+  // Find root node (node with 0 parents)
+  const roots = treeData.nodes.filter(n => parents[n.id].length === 0);
+  const rootId = roots.length > 0 ? roots[0].id : treeData.nodes[0].id;
+
+  // BFS / DFS depths
+  const depth = {};
+  depth[rootId] = 0;
+  const queue = [rootId];
+  while (queue.length > 0) {
+    const curr = queue.shift();
+    const d = depth[curr];
+    (children[curr] || []).forEach(ch => {
+      depth[ch] = d + 1;
+      queue.push(ch);
+    });
+  }
+
+  const maxDepth = Math.max(...Object.values(depth), 1);
+
+  // DFS leaf ordering for 100% planar non-crossing layout
+  const leaves = [];
+  function dfsLeaves(curr) {
+    const chList = children[curr] || [];
+    if (chList.length === 0 || nodesDict[curr]?.type === "terminal") {
+      leaves.push(curr);
+      return;
+    }
+    chList.forEach(ch => dfsLeaves(ch));
+  }
+  dfsLeaves(rootId);
+
+  // Vertical coordinates (Leaves spaced evenly, parents centered vertically)
+  const yStart = 220000;
+  const deltaY = 380000; // ~1.05 cm per leaf row
+  const yPos = {};
+  leaves.forEach((leafId, idx) => {
+    yPos[leafId] = yStart + idx * deltaY;
+  });
+
+  function assignInternalY(curr) {
+    const chList = children[curr] || [];
+    if (chList.length === 0 || nodesDict[curr]?.type === "terminal") {
+      return yPos[curr];
+    }
+    const chYs = chList.map(ch => assignInternalY(ch));
+    const currY = Math.round(chYs.reduce((s, v) => s + v, 0) / chYs.length);
+    yPos[curr] = currY;
+    return currY;
+  }
+  assignInternalY(rootId);
+
+  // Horizontal coordinates (dynamic step to fit standard Word margins)
+  const xStart = 120000;
+  const deltaX = Math.min(1400000, Math.max(1100000, Math.floor(5200000 / Math.max(1, maxDepth))));
+  const xPos = {};
+  Object.keys(depth).forEach(nid => {
+    xPos[nid] = xStart + (depth[nid] || 0) * deltaX;
+  });
+
+  const decSize = 180000;    // Cuadrado decisión
+  const chanceSize = 180000; // Círculo azar
+  const termSize = 140000;   // Triángulo terminal
+  const payoffW = 900000;
+  const payoffH = 180000;
+
+  const shapesXml = [];
+  let shapeId = 9000;
+
+  // 1. Draw Edges first (so shapes overlay connectors cleanly)
+  treeData.edges.forEach(e => {
+    const u = e.from;
+    const v = e.to;
+    const uNode = nodesDict[u];
+    const vNode = nodesDict[v];
+    if (!uNode || !vNode) return;
+
+    const uType = uNode.type || "decision";
+    const vType = vNode.type || "terminal";
+
+    const uW = uType === "decision" ? decSize : chanceSize;
+    const x1 = xPos[u] + uW;
+    const y1 = yPos[u] + Math.floor(uW / 2);
+
+    const x2 = xPos[v];
+    const vW = vType === "terminal" ? termSize : (vType === "decision" ? decSize : chanceSize);
+    const y2 = yPos[v] + Math.floor(vW / 2);
+
+    const minX = Math.min(x1, x2);
+    const minY = Math.min(y1, y2);
+    const cx = Math.max(12700, Math.abs(x2 - x1));
+    const cy = Math.max(12700, Math.abs(y2 - y1));
+    const flipH = x2 < x1 ? ' flipH="1"' : '';
+    const flipV = y2 < y1 ? ' flipV="1"' : '';
+
+    const connId = shapeId++;
+    const isOptimal = !!e.optimal;
+    const lineW = isOptimal ? 25400 : 12700;
+    const lineClr = isOptimal ? "0284C7" : "333333";
+
+    shapesXml.push(`
+      <wps:wsp>
+        <wps:cNvPr id="${connId}" name="Edge_${u}_${v}"/>
+        <wps:cNvCnPr/>
+        <wps:spPr>
+          <a:xfrm${flipH}${flipV}><a:off x="${minX}" y="${minY}"/><a:ext cx="${cx}" cy="${cy}"/></a:xfrm>
+          <a:prstGeom prst="straightConnector1"><a:avLst/></a:prstGeom>
+          <a:ln w="${lineW}">
+            <a:solidFill><a:srgbClr val="${lineClr}"/></a:solidFill>
+          </a:ln>
+        </wps:spPr>
+        <wps:bodyPr/>
+      </wps:wsp>
+    `);
+
+    // Branch Label (Alternative, Probability, Cost)
+    const lblText = e.label || "";
+    const probText = e.prob || "";
+    const costText = e.cost || "";
+    const hasSub = !!(probText || (costText && costText !== "0"));
+    const subText = probText ? `p = ${probText}` : ((costText && costText !== "0") ? `[${costText}]` : "");
+
+    if (lblText || subText) {
+      const lblId = shapeId++;
+      const midX = Math.floor((x1 + x2) / 2);
+      const midY = Math.floor((y1 + y2) / 2);
+      const lblW = Math.min(1100000, cx);
+      const lblH = hasSub ? 220000 : 150000;
+      const lblX = Math.max(minX, midX - Math.floor(lblW / 2));
+      const lblY = midY - lblH - 10000;
+
+      const optBold = isOptimal ? '<w:b/>' : '';
+      const optColor = isOptimal ? `<w:color w:val="${lineClr}"/>` : '<w:color w:val="1E293B"/>';
+
+      let subP = "";
+      if (hasSub) {
+        subP = `
+          <w:p>
+            <w:pPr>
+              <w:jc w:val="center"/>
+              <w:spacing w:line="130" w:lineRule="auto" w:before="0" w:after="0"/>
+              <w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/><w:sz w:val="13"/><w:color w:val="475569"/></w:rPr>
+            </w:pPr>
+            <w:r>
+              <w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/><w:sz w:val="13"/><w:color w:val="475569"/></w:rPr>
+              <w:t>${subText}</w:t>
+            </w:r>
+          </w:p>
+        `;
+      }
+
+      shapesXml.push(`
+        <wps:wsp>
+          <wps:cNvPr id="${lblId}" name="Lbl_${u}_${v}"/>
+          <wps:cNvSpPr/>
+          <wps:spPr>
+            <a:xfrm><a:off x="${lblX}" y="${lblY}"/><a:ext cx="${lblW}" cy="${lblH}"/></a:xfrm>
+            <a:prstGeom prst="rect"><a:avLst/></a:prstGeom>
+            <a:ln><a:noFill/></a:ln>
+          </wps:spPr>
+          <wps:txbx>
+            <w:txbxContent>
+              <w:p>
+                <w:pPr>
+                  <w:jc w:val="center"/>
+                  <w:spacing w:line="140" w:lineRule="auto" w:before="0" w:after="0"/>
+                  <w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/><w:sz w:val="14"/>${optBold}${optColor}</w:rPr>
+                </w:pPr>
+                <w:r>
+                  <w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/><w:sz w:val="14"/>${optBold}${optColor}</w:rPr>
+                  <w:t>${lblText}</w:t>
+                </w:r>
+              </w:p>
+              ${subP}
+            </w:txbxContent>
+          </w:txbx>
+          <wps:bodyPr anchor="ctr" lIns="0" rIns="0" tIns="0" bIns="0"/>
+        </wps:wsp>
+      `);
+    }
+  });
+
+  // 2. Draw Nodes (Decision: Square, Chance: Circle, Terminal: Triangle)
+  treeData.nodes.forEach(n => {
+    const nid = n.id;
+    const ntype = n.type || "decision";
+    const x = xPos[nid];
+    const y = yPos[nid];
+    const nodeId = shapeId++;
+
+    const labelTxt = n.label || nid;
+    const vmeTxt = n.vme || "";
+
+    if (ntype === "decision") {
+      // Cuadrado de decisión
+      shapesXml.push(`
+        <wps:wsp>
+          <wps:cNvPr id="${nodeId}" name="Dec_${nid}"/>
+          <wps:cNvSpPr/>
+          <wps:spPr>
+            <a:xfrm><a:off x="${x}" y="${y}"/><a:ext cx="${decSize}" cy="${decSize}"/></a:xfrm>
+            <a:prstGeom prst="rect"><a:avLst/></a:prstGeom>
+            <a:solidFill><a:srgbClr val="F0F4F8"/></a:solidFill>
+            <a:ln w="19050"><a:solidFill><a:srgbClr val="1E3A8A"/></a:solidFill></a:ln>
+          </wps:spPr>
+          <wps:txbx>
+            <w:txbxContent>
+              <w:p>
+                <w:pPr>
+                  <w:jc w:val="center"/>
+                  <w:spacing w:line="160" w:lineRule="auto" w:before="0" w:after="0"/>
+                  <w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/><w:b/><w:sz w:val="15"/><w:color w:val="1E3A8A"/></w:rPr>
+                </w:pPr>
+                <w:r>
+                  <w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/><w:b/><w:sz w:val="15"/><w:color w:val="1E3A8A"/></w:rPr>
+                  <w:t>${labelTxt}</w:t>
+                </w:r>
+              </w:p>
+            </w:txbxContent>
+          </w:txbx>
+          <wps:bodyPr anchor="ctr" lIns="0" rIns="0" tIns="0" bIns="0"/>
+        </wps:wsp>
+      `);
+
+      if (vmeTxt) {
+        const vmeId = shapeId++;
+        shapesXml.push(`
+          <wps:wsp>
+            <wps:cNvPr id="${vmeId}" name="VME_${nid}"/>
+            <wps:cNvSpPr/>
+            <wps:spPr>
+              <a:xfrm><a:off x="${x - 150000}" y="${y - 150000}"/><a:ext cx="${decSize + 300000}" cy="140000"/></a:xfrm>
+              <a:prstGeom prst="rect"><a:avLst/></a:prstGeom>
+              <a:ln><a:noFill/></a:ln>
+            </wps:spPr>
+            <wps:txbx>
+              <w:txbxContent>
+                <w:p>
+                  <w:pPr>
+                    <w:jc w:val="center"/>
+                    <w:spacing w:line="140" w:lineRule="auto" w:before="0" w:after="0"/>
+                    <w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/><w:b/><w:sz w:val="13"/><w:color w:val="1E3A8A"/></w:rPr>
+                  </w:pPr>
+                  <w:r>
+                    <w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/><w:b/><w:sz w:val="13"/><w:color w:val="1E3A8A"/></w:rPr>
+                    <w:t>[${vmeTxt}]</w:t>
+                  </w:r>
+                </w:p>
+              </w:txbxContent>
+            </w:txbx>
+            <wps:bodyPr anchor="ctr" lIns="0" rIns="0" tIns="0" bIns="0"/>
+          </wps:wsp>
+        `);
+      }
+    } else if (ntype === "chance") {
+      // Círculo de probabilidad / azar
+      shapesXml.push(`
+        <wps:wsp>
+          <wps:cNvPr id="${nodeId}" name="Chance_${nid}"/>
+          <wps:cNvSpPr/>
+          <wps:spPr>
+            <a:xfrm><a:off x="${x}" y="${y}"/><a:ext cx="${chanceSize}" cy="${chanceSize}"/></a:xfrm>
+            <a:prstGeom prst="ellipse"><a:avLst/></a:prstGeom>
+            <a:solidFill><a:srgbClr val="FEF3C7"/></a:solidFill>
+            <a:ln w="19050"><a:solidFill><a:srgbClr val="D97706"/></a:solidFill></a:ln>
+          </wps:spPr>
+          <wps:txbx>
+            <w:txbxContent>
+              <w:p>
+                <w:pPr>
+                  <w:jc w:val="center"/>
+                  <w:spacing w:line="160" w:lineRule="auto" w:before="0" w:after="0"/>
+                  <w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/><w:b/><w:sz w:val="15"/><w:color w:val="92400E"/></w:rPr>
+                </w:pPr>
+                <w:r>
+                  <w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/><w:b/><w:sz w:val="15"/><w:color w:val="92400E"/></w:rPr>
+                  <w:t>${labelTxt}</w:t>
+                </w:r>
+              </w:p>
+            </w:txbxContent>
+          </w:txbx>
+          <wps:bodyPr anchor="ctr" lIns="0" rIns="0" tIns="0" bIns="0"/>
+        </wps:wsp>
+      `);
+
+      if (vmeTxt) {
+        const vmeId = shapeId++;
+        shapesXml.push(`
+          <wps:wsp>
+            <wps:cNvPr id="${vmeId}" name="VME_${nid}"/>
+            <wps:cNvSpPr/>
+            <wps:spPr>
+              <a:xfrm><a:off x="${x - 150000}" y="${y - 150000}"/><a:ext cx="${chanceSize + 300000}" cy="140000"/></a:xfrm>
+              <a:prstGeom prst="rect"><a:avLst/></a:prstGeom>
+              <a:ln><a:noFill/></a:ln>
+            </wps:spPr>
+            <wps:txbx>
+              <w:txbxContent>
+                <w:p>
+                  <w:pPr>
+                    <w:jc w:val="center"/>
+                    <w:spacing w:line="140" w:lineRule="auto" w:before="0" w:after="0"/>
+                    <w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/><w:b/><w:sz w:val="13"/><w:color w:val="B45309"/></w:rPr>
+                  </w:pPr>
+                  <w:r>
+                    <w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/><w:b/><w:sz w:val="13"/><w:color w:val="B45309"/></w:rPr>
+                    <w:t>VME=${vmeTxt}</w:t>
+                  </w:r>
+                </w:p>
+              </w:txbxContent>
+            </w:txbx>
+            <wps:bodyPr anchor="ctr" lIns="0" rIns="0" tIns="0" bIns="0"/>
+          </wps:wsp>
+        `);
+      }
+    } else if (ntype === "terminal") {
+      // Triángulo terminal apuntando a la derecha (rot=5400000 = 90 deg)
+      const payoffVal = n.payoff || "";
+      const isNegative = payoffVal.includes("-");
+      const payoffClr = isNegative ? "991B1B" : "166534";
+
+      shapesXml.push(`
+        <wps:wsp>
+          <wps:cNvPr id="${nodeId}" name="Term_${nid}"/>
+          <wps:cNvSpPr/>
+          <wps:spPr>
+            <a:xfrm rot="5400000"><a:off x="${x}" y="${y}"/><a:ext cx="${termSize}" cy="${termSize}"/></a:xfrm>
+            <a:prstGeom prst="triangle"><a:avLst/></a:prstGeom>
+            <a:solidFill><a:srgbClr val="${payoffClr}"/></a:solidFill>
+            <a:ln w="12700"><a:solidFill><a:srgbClr val="${payoffClr}"/></a:solidFill></a:ln>
+          </wps:spPr>
+          <wps:bodyPr/>
+        </wps:wsp>
+      `);
+
+      // Payoff text box right next to triangle
+      const payId = shapeId++;
+      shapesXml.push(`
+        <wps:wsp>
+          <wps:cNvPr id="${payId}" name="Pay_${nid}"/>
+          <wps:cNvSpPr/>
+          <wps:spPr>
+            <a:xfrm><a:off x="${x + termSize + 40000}" y="${y - 20000}"/><a:ext cx="${payoffW}" cy="${payoffH}"/></a:xfrm>
+            <a:prstGeom prst="rect"><a:avLst/></a:prstGeom>
+            <a:ln><a:noFill/></a:ln>
+          </wps:spPr>
+          <wps:txbx>
+            <w:txbxContent>
+              <w:p>
+                <w:pPr>
+                  <w:jc w:val="left"/>
+                  <w:spacing w:line="160" w:lineRule="auto" w:before="0" w:after="0"/>
+                  <w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/><w:b/><w:sz w:val="16"/><w:color w:val="${payoffClr}"/></w:rPr>
+                </w:pPr>
+                <w:r>
+                  <w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/><w:b/><w:sz w:val="16"/><w:color w:val="${payoffClr}"/></w:rPr>
+                  <w:t>${payoffVal}</w:t>
+                </w:r>
+              </w:p>
+            </w:txbxContent>
+          </w:txbx>
+          <wps:bodyPr anchor="ctr" lIns="0" rIns="0" tIns="0" bIns="0"/>
+        </wps:wsp>
+      `);
+    }
+  });
+
+  const allX = Object.values(xPos);
+  const allY = Object.values(yPos);
+  const maxX = Math.max(...allX) + payoffW + termSize + 150000;
+  const maxY = Math.max(...allY) + termSize + 200000;
+
+  const drawingXml = `
+    <w:drawing xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"
+      xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing"
+      xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"
+      xmlns:wpg="http://schemas.microsoft.com/office/word/2010/wordprocessingGroup"
+      xmlns:wps="http://schemas.microsoft.com/office/word/2010/wordprocessingShape">
+      <wp:inline>
+        <wp:extent cx="${maxX}" cy="${maxY}"/>
+        <wp:effectExtent l="0" t="0" r="0" b="0"/>
+        <wp:docPr id="9000" name="Árbol de Decisión"/>
+        <wp:cNvGraphicFramePr><a:graphicFrameLocks/></wp:cNvGraphicFramePr>
+        <a:graphic>
+          <a:graphicData uri="http://schemas.microsoft.com/office/word/2010/wordprocessingGroup">
+            <wpg:wgp>
+              <wpg:cNvGrpSpPr/>
+              <wpg:grpSpPr>
+                <a:xfrm>
+                  <a:off x="0" y="0"/>
+                  <a:ext cx="${maxX}" cy="${maxY}"/>
+                  <a:chOff x="0" y="0"/>
+                  <a:chExt cx="${maxX}" cy="${maxY}"/>
+                </a:xfrm>
+              </wpg:grpSpPr>
+              ${shapesXml.join("")}
+            </wpg:wgp>
+          </a:graphicData>
+        </a:graphic>
+      </wp:inline>
+    </w:drawing>
+  `;
+
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<?mso-application progid="Word.Document"?>
+<pkg:package xmlns:pkg="http://schemas.microsoft.com/office/2006/xmlPackage">
+  <pkg:part pkg:name="/_rels/.rels" pkg:contentType="application/vnd.openxmlformats-package.relationships+xml" pkg:padding="512">
+    <pkg:xmlData>
+      <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+        <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>
+      </Relationships>
+    </pkg:xmlData>
+  </pkg:part>
+  <pkg:part pkg:name="/word/document.xml" pkg:contentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml">
+    <pkg:xmlData>
+      <w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"
+                  xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing"
+                  xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"
+                  xmlns:wpg="http://schemas.microsoft.com/office/word/2010/wordprocessingGroup"
+                  xmlns:wps="http://schemas.microsoft.com/office/word/2010/wordprocessingShape">
+        <w:body>
+          <w:p>
+            <w:r>
+              ${drawingXml}
+            </w:r>
+          </w:p>
+        </w:body>
+      </w:document>
+    </pkg:xmlData>
+  </pkg:part>
+</pkg:package>`;
 }
 
 function buildFullPertOoxmlFromActivities(rawActivities) {
@@ -814,11 +1303,12 @@ function buildFullPertOoxmlFromActivities(rawActivities) {
 </pkg:package>`;
 }
 
-// Button: Insert Generated Red PERT Drawing
+// Button: Insert Generated Vector Drawing (PERT or Decision Tree)
 if (btnInsertDrawing) {
   btnInsertDrawing.addEventListener("click", async () => {
-    if (!currentPertOoxml) {
-      alert("No hay diagrama de red generado para insertar.");
+    const ooxmlToInsert = currentDiagramOoxml || currentPertOoxml;
+    if (!ooxmlToInsert) {
+      showToast("No hay diagrama generado para insertar.");
       return;
     }
 
@@ -826,7 +1316,7 @@ if (btnInsertDrawing) {
       try {
         await Word.run(async (context) => {
           const selection = context.document.getSelection();
-          const range = selection.insertOoxml(currentPertOoxml, Word.InsertLocation.replace);
+          const range = selection.insertOoxml(ooxmlToInsert, Word.InsertLocation.replace);
           range.select("End");
           await context.sync();
         });
@@ -834,22 +1324,22 @@ if (btnInsertDrawing) {
         return;
       } catch (e) {
         console.warn("Word.run insertOoxml fallback:", e);
-        alert("Error al insertar el diagrama en Word: " + e.message);
+        showToast("Error al insertar: " + e.message);
       }
     }
 
     if (typeof Office !== "undefined" && Office.context && Office.context.document) {
-      Office.context.document.setSelectedDataAsync(currentPertOoxml, { coercionType: Office.CoercionType.Ooxml }, (result) => {
+      Office.context.document.setSelectedDataAsync(ooxmlToInsert, { coercionType: Office.CoercionType.Ooxml }, (result) => {
         if (result.status === Office.AsyncResultStatus.Succeeded) {
           showToast("✓ Diagrama insertado en la posición del cursor");
         } else {
-          alert("Error al insertar: " + result.error.message);
+          showToast("Error al insertar: " + result.error.message);
         }
       });
       return;
     }
 
-    alert("Para insertar el dibujo, abre el complemento dentro de Word.");
+    showToast("Abre el complemento dentro de Word para insertar.");
   });
 }
 
@@ -864,7 +1354,8 @@ function showTurn(idx) {
   // 1. Sync active data for Word insertion and copy
   currentRawMarkdown = turn.responseMarkdown;
   currentRenderedHtml = turn.renderedHtml;
-  currentPertOoxml = turn.pertOoxml;
+  currentDiagramOoxml = turn.diagramOoxml || turn.pertOoxml;
+  currentPertOoxml = currentDiagramOoxml;
 
   // 2. Update user query box
   if (turnUserText) turnUserText.textContent = turn.query;
@@ -875,9 +1366,17 @@ function showTurn(idx) {
     resultView.scrollTop = 0;
   }
 
-  // 4. Update PERT vector drawing button
+  // 4. Update Vector Drawing button (PERT or Decision Tree)
   if (btnInsertDrawing) {
-    btnInsertDrawing.style.display = turn.pertOoxml ? "block" : "none";
+    const hasDiag = !!currentDiagramOoxml;
+    btnInsertDrawing.style.display = hasDiag ? "block" : "none";
+    if (turn.diagramType) {
+      btnInsertDrawing.textContent = "Insertar " + turn.diagramType;
+      btnInsertDrawing.title = "Inserta el " + turn.diagramType + " vectorial en tu cursor";
+    } else {
+      btnInsertDrawing.textContent = "Insertar Diagrama";
+      btnInsertDrawing.title = "Inserta el diagrama vectorial en tu cursor";
+    }
   }
 
   // 5. Update Turn Badge
@@ -978,8 +1477,8 @@ REGLAS DE FORMATO:
 - Responde directamente al pedido con explicaciones claras o tablas actualizadas.
 - Si presentas tablas, usa formato Markdown completo para Microsoft Word.
 - CERO bloques de código (\`\`\`), CERO LaTeX crudo ($).
-- Si se modifican actividades de la red PERT, incluye al final el bloque actualizado:
-<!-- PERT_DATA: [...] -->`;
+- Si se modifican actividades de la red PERT, incluye al final el bloque actualizado: <!-- PERT_DATA: [...] -->
+- Si se modifica un árbol de decisión, incluye al final el bloque actualizado: <!-- TREE_DATA: {...} -->`;
   }
 
   chatHistory.push({ role: "user", parts: [{ text: userPrompt }] });
@@ -1001,14 +1500,31 @@ REGLAS DE FORMATO:
     promptInput.value = "";
     promptInput.placeholder = "Haz una pregunta de seguimiento, pide un ajuste o toca 'Limpiar' para un nuevo ejercicio...";
 
-    // Check if response contains PERT data to generate native Vector Drawing Canvas
-    let turnPertOoxml = null;
-    const pertActivities = parsePertTable(responseText);
-    if (pertActivities && pertActivities.length >= 2) {
+    // Check if response contains Decision Tree or PERT data to generate native Vector Drawing
+    let turnDiagramOoxml = null;
+    let diagramType = null;
+
+    // 1. Try Decision Tree
+    const treeData = parseTreeData(responseText);
+    if (treeData && treeData.nodes && treeData.nodes.length >= 2) {
       try {
-        turnPertOoxml = buildFullPertOoxmlFromActivities(pertActivities);
+        turnDiagramOoxml = buildDecisionTreeOoxml(treeData);
+        diagramType = "Árbol de Decisión";
       } catch (e) {
-        console.warn("Error building full PERT OOXML:", e);
+        console.warn("Error building Decision Tree OOXML:", e);
+      }
+    }
+
+    // 2. Try PERT if not a tree
+    if (!turnDiagramOoxml) {
+      const pertActivities = parsePertTable(responseText);
+      if (pertActivities && pertActivities.length >= 2) {
+        try {
+          turnDiagramOoxml = buildFullPertOoxmlFromActivities(pertActivities);
+          diagramType = "Red PERT";
+        } catch (e) {
+          console.warn("Error building full PERT OOXML:", e);
+        }
       }
     }
 
@@ -1026,7 +1542,9 @@ REGLAS DE FORMATO:
       query: query,
       responseMarkdown: responseText,
       renderedHtml: renderedHtml,
-      pertOoxml: turnPertOoxml,
+      diagramOoxml: turnDiagramOoxml,
+      diagramType: diagramType,
+      pertOoxml: turnDiagramOoxml,
       modelUsed: modelUsed,
     };
     chatTurns.push(newTurn);
@@ -1275,7 +1793,28 @@ ESTRUCTURA OBLIGATORIA DEL DESARROLLO:
    - Mostrar las sustituciones numéricas paso a paso avanzando hacia la raíz del árbol.
 4. POLÍTICA DE DECISIÓN ÓPTIMA Y CONCLUSIÓN:
    - Indicar explícitamente la estrategia secuencial recomendada (qué hacer inicialmente y qué decisión tomar ante cada resultado posterior observado).
-   - Valor Monetario Esperado óptimo final con unidades.`;
+   - Valor Monetario Esperado óptimo final con unidades.
+
+5. ESTRUCTURA JSON OCULTA DEL ÁRBOL (OBLIGATORIA AL FINAL DEL TEXTO):
+Al final de todo el texto, incluye obligatoriamente un bloque HTML oculto con la estructura JSON completa del árbol para alimentar el generador vectorial nativo de Word:
+<!-- TREE_DATA:
+{
+  "nodes": [
+    {"id": "D1", "type": "decision", "label": "1", "vme": "100 M"},
+    {"id": "A1", "type": "chance", "label": "2", "vme": "10.8 M"},
+    {"id": "T1", "type": "terminal", "label": "", "payoff": "100 M"}
+  ],
+  "edges": [
+    {"from": "D1", "to": "T1", "label": "Vender a gran compañía", "prob": "", "cost": "0", "optimal": true},
+    {"from": "D1", "to": "A1", "label": "Contratar estudio mercado", "prob": "", "cost": "-8 M", "optimal": false}
+  ]
+}
+-->
+REGLAS PARA TREE_DATA:
+- "nodes": lista con TODOS los nodos. "type" debe ser exactamente "decision" (cuadrado), "chance" (círculo) o "terminal" (triángulo).
+- "vme": valor monetario esperado del nodo según el rollback (ej: "100 M", "10.8 M").
+- "payoff": valor neto en los nodos terminales (ej: "100 M", "+27 M", "-13 M").
+- "edges": lista con TODAS las ramas. "optimal" es true para las ramas de la política óptima.`;
   } else if (resolvedType === "markov") {
     typeInstruction = `
 TIPO DE PROBLEMA: CADENAS DE MARKOV Y PROCESOS DE TRANSICIÓN (REGLAS DE CÁTEDRA).
