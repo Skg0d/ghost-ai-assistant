@@ -222,6 +222,42 @@ btnGetSelection.addEventListener("click", async () => {
   }
 });
 
+// Helper function to prepare native Word HTML elements (Tables, Boxes, Arrows)
+function prepareWordHtml(html) {
+  let clean = html;
+
+  // 1. Remove code blocks (<pre><code>) if any, converting them into clean normal text
+  clean = clean.replace(/<pre><code[^>]*>([\s\S]*?)<\/code><\/pre>/gi, (match, code) => {
+    return `<div style="font-family: Calibri, sans-serif; padding: 8px 0; margin: 8px 0; line-height: 1.4;">${code}</div>`;
+  });
+
+  // 2. Remove LaTeX commands, raw math codes and dollar signs
+  clean = clean.replace(/\\implies/g, " ➔ ")
+               .replace(/\\rightarrow/g, " ➔ ")
+               .replace(/-->/g, " ➔ ")
+               .replace(/->/g, " ➔ ")
+               .replace(/\\max/g, "max")
+               .replace(/\\min/g, "min")
+               .replace(/\\text\{([^}]+)\}/g, "$1")
+               .replace(/\$([^\$]+)\$/g, "$1");
+
+  // 3. Format square brackets like [ A: 3 meses ] into real bordered Word boxes (Cuadros de Word)
+  clean = clean.replace(/\[\s*([^\]\<\>]+?)\s*\]/g, (match, text) => {
+    if (text.startsWith("http") || text.length > 60 || text.includes("\n")) return match;
+    const isCritical = text.includes("*") || text.toLowerCase().includes("crític");
+    const bg = isCritical ? "#e2e8f0" : "#ffffff";
+    const border = isCritical ? "2px solid #000000" : "1.5px solid #000000";
+    return `<span style="display: inline-block; border: ${border}; background-color: ${bg}; padding: 3px 8px; margin: 3px 4px; font-weight: bold; font-family: Calibri, sans-serif; font-size: 10pt; text-align: center; border-radius: 2px;">${text}</span>`;
+  });
+
+  // 4. Ensure real native Word tables with clean black borders and cell shading
+  clean = clean.replace(/<table[^>]*>/gi, '<table border="1" cellpadding="6" cellspacing="0" style="border-collapse: collapse; width: 100%; border: 1.5px solid #000000; margin: 12px 0; font-family: Calibri, sans-serif; font-size: 10pt;">');
+  clean = clean.replace(/<th[^>]*>/gi, '<th style="border: 1px solid #000000; background-color: #f2f2f2; font-weight: bold; padding: 6px 8px; text-align: center; color: #000000;">');
+  clean = clean.replace(/<td[^>]*>/gi, '<td style="border: 1px solid #000000; padding: 5px 8px; text-align: center; color: #000000;">');
+
+  return clean;
+}
+
 // Insert solution directly into Word document
 btnInsertWord.addEventListener("click", async () => {
   if (!currentRenderedHtml) {
@@ -229,7 +265,7 @@ btnInsertWord.addEventListener("click", async () => {
     return;
   }
 
-  // Academic monochrome styling for Word document
+  // Academic styling for native Word document insertion
   const styledHtml = `
     <div style="font-family: Calibri, 'Segoe UI', sans-serif; font-size: 11pt; color: #000000; line-height: 1.35;">
       <h3 style="color: #000000; border-bottom: 2px solid #000000; padding-bottom: 4px; margin-top: 14px;">
@@ -304,11 +340,11 @@ btnSolve.addEventListener("click", async () => {
     const responseText = await callGeminiAPI(prompt, apiKey);
     currentRawMarkdown = responseText;
 
-    // Convert markdown to clean HTML
+    // Convert markdown to clean HTML with native Word elements
     if (typeof marked !== "undefined" && marked.parse) {
-      currentRenderedHtml = marked.parse(responseText);
+      currentRenderedHtml = prepareWordHtml(marked.parse(responseText));
     } else {
-      currentRenderedHtml = `<pre style="white-space: pre-wrap;">${responseText}</pre>`;
+      currentRenderedHtml = prepareWordHtml(responseText);
     }
 
     resultView.innerHTML = currentRenderedHtml;
@@ -347,48 +383,43 @@ ESTRUCTURA OBLIGATORIA DEL DESARROLLO (Paso a Paso):
   } else if (type === "pert" || consigna.toLowerCase().includes("red") || consigna.toLowerCase().includes("camino crítico") || consigna.toLowerCase().includes("holgura")) {
     typeInstruction = `
 TIPO DE PROBLEMA: DIAGRAMA DE REDES / PERT - CPM.
-DEBES GENERAR EXACTAMENTE LAS SIGUIENTES SECCIONES Y PLANTILLAS CUADRADAS EN ESTE ORDEN:
+DEBES GENERAR EXACTAMENTE LAS SIGUIENTES SECCIONES Y TABLAS PARA MICROSOFT WORD:
 
-1. DIAGRAMA DE RED (MÉTODO AON - ACTIVIDAD EN EL NODO):
-Representa obligatoriamente el diagrama de red completo dentro de un bloque de código monospaciado (\`\`\`text ... \`\`\`) mostrando la estructura visual de niveles, arcos y bifurcaciones desde (INICIO) hasta (FIN).
-Plantilla obligatoria del esquema de red:
-\`\`\`text
-=============================================================================
-                       DIAGRAMA DE RED (MÉTODO AON)
-=============================================================================
-NIVEL 0 (INICIO)  -->  NIVEL 1         -->  NIVEL 2    -->  NIVEL 3   -->  NIVEL 4 (FIN)
------------------------------------------------------------------------------
-[ (INICIO) ]
-    │
-    ├──> [ A (t=...) ] ──┬──> [ C (t=...) ] ──> ... ───────────────> (FIN)
-    │                    └──> [ ... ] ─────────────────────────────> (FIN)
-    ...
------------------------------------------------------------------------------
-* RUTA CRÍTICA RESALTADA: [INICIO] -> [Act1] -> [Act2] -> ... -> [FIN]
-=============================================================================
-\`\`\`
+1. DIAGRAMA DE RED (CUADROS Y FLECHAS DE WORD):
+ESTRICTAMENTE PROHIBIDO USAR BLOQUES DE CÓDIGO (\`\`\`), LÍNEAS DE CONSOLA O SIGNOS IGUAL (===).
+Para que Word dibuje cuadros reales con bordes y flechas nativas:
+A. Representa cada rama de la red como una secuencia de nodos encuadrados entre corchetes [ ] conectados por flechas ➔:
+   - Ruta Principal (Crítica): [ INICIO ] ➔ [ Actividad (duración) ] ➔ ... ➔ [ FIN: T* ]
+   - Demás Rutas: [ INICIO ] ➔ ... ➔ [ FIN: duración ]
+   (Cada corchete [ ... ] se transformará automáticamente en un cuadro con borde negro sólido en Word).
 
-2. ANÁLISIS DE RUTAS POSIBLES Y DURACIONES:
-Enumera cada uno de los caminos posibles desde (INICIO) hasta (FIN) sumando explícitamente las duraciones:
-- Ruta 1: ... (Duración total = X)
-- Ruta 2: ... (Duración total = Y)
-Identifica formalmente la ruta de mayor duración, que determina el tiempo mínimo del proyecto: T*.
+B. Tabla de Conexiones de Nodos de la Red (AON):
+   Genera una tabla cuadrada de Word que sintetice la estructura de la red:
+   | Nodo / Actividad | Duración (t) | Predecesoras Directas | Conecta hacia (Sucesoras) |
+   | :---: | :---: | :---: | :---: |
 
-3. REGLAS MATEMÁTICAS ESTRICTAS DE TIEMPOS TEMPRANOS Y TARDÍOS (Paso a Paso):
+2. ANÁLISIS COMPARATIVO DE RUTAS DE LA RED (TABLA DE WORD):
+Genera obligatoriamente una tabla formal de Word con la comparación de todas las rutas posibles desde (INICIO) hasta (FIN):
+| Ruta | Secuencia de la Ruta | Operación de Duración | Duración Total | ¿Es Ruta Crítica? |
+| :---: | :--- | :---: | :---: | :---: |
+(Enumera cada ruta y resalta en negrita la ruta con mayor duración: T*).
+
+3. CÁLCULO DE TIEMPOS TEMPRANOS Y TARDÍOS (SIN CÓDIGO NI LATEX):
+CERO signos de dólar $, CERO comandos LaTeX como \\implies o \\text{}.
+Escribe las ecuaciones en texto limpio y natural para Word:
 - Paso hacia adelante (Forward Pass):
-  * Para actividades iniciales: ES = 0.
+  * ES = 0 para actividades iniciales.
   * EF = ES + t.
-  * Para nodos con múltiples predecesoras: ES = max(EF de todas las predecesoras directas).
-  * Duración mínima del proyecto: T* = max(EF de todas las actividades terminales).
+  * ES = max(EF de predecesoras) para convergencias.
+  * Tiempo mínimo del proyecto: T* = max(EF de terminales).
+  (Detalla los cálculos de cada actividad: ej: ES(C) = EF(A) = 3  →  EF(C) = 3 + 1 = 4 meses).
 - Paso hacia atrás (Backward Pass) - REGLA UNIVERSAL ESTRICTA:
-  * OBLIGATORIO: Para TODAS las actividades terminales (aquellas sin sucesoras), su Tiempo de Finalización Tardía es IGUAL a la duración total del proyecto: LF = T*.
-  * NINGUNA actividad en todo el proyecto puede tener LF > T* o LS > T*.
+  * OBLIGATORIO: Para TODAS las actividades terminales (sin sucesoras), su Tiempo de Finalización Tardía es IGUAL a T* (LF = T*). Ninguna actividad puede tener LF > T*.
   * LS = LF - t.
-  * Para nodos con múltiples sucesoras: LF = min(LS de todas las sucesoras directas).
-  * Holgura Total: H = LF - EF = LS - ES.
-  * Condición de criticidad: Una actividad es crítica si y solo si su Holgura Total es 0 (H = 0).
+  * LF = min(LS de sucesoras directas) para bifurcaciones.
+  (Detalla los cálculos paso a paso).
 
-4. TABLA GENERAL DE ACTIVIDADES Y HOLGURAS (Plantilla Markdown Cuadrada):
+4. TABLA MAESTRA DE ACTIVIDADES Y HOLGURAS (TABLA CUADRADA DE 9 COLUMNAS):
 Genera obligatoriamente la tabla con esta estructura exacta de 9 columnas, verificando cada cálculo aritmético celda por celda:
 | Actividad | Predecesora | Duración (t) | Inicio Temprano (ES) | Fin Temprano (EF) | Inicio Tardío (LS) | Fin Tardío (LF) | Holgura Total (H = LF - EF) | ¿Crítica? |
 | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
@@ -438,7 +469,10 @@ ${typeInstruction}
 
 REGLAS DE FORMATO ESTRICTAS:
 1. SOLO EL DESARROLLO CON LOS PASOS: No incluyas saludos, ni charlas, ni introducciones vacías como "A continuación resuelvo...". Ve directo al paso 1.
-2. TODAS LAS TABLAS EN FORMATO TABLA MARKDOWN: Usa tablas Markdown prolijas (con | y -) para que Word las convierta automáticamente en tablas reales editables.
+2. FORMATO NATIVO PARA MICROSOFT WORD (CERO CÓDIGO Y CERO LATEX):
+   - ESTRICTAMENTE PROHIBIDO usar bloques de código (\`\`\`), líneas de consola o signos igual (===).
+   - ESTRICTAMENTE PROHIBIDO usar sintaxis LaTeX cruda (\\implies, \\max, \\text, signos de dólar $). Escribe texto claro y legible: "ES = 3  →  EF = 4 meses".
+   - TODAS LAS TABLAS EN FORMATO TABLA MARKDOWN: Usa tablas Markdown prolijas (con | y -) para que Word las convierta automáticamente en tablas reales editables con cuadrícula y bordes.
 3. PRECISIÓN MATEMÁTICA ABSOLUTA: Verifica todas las operaciones aritméticas (sumas, multiplicaciones de matrices, holguras, valor esperado).
 
 CONSIGNA DEL EXAMEN:
