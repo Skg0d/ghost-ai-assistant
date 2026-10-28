@@ -1034,19 +1034,29 @@ function buildOperationalResearchPrompt(consigna, selectedType) {
 
   // Auto-detection logic if type is 'auto' or unselected
   if (!resolvedType || resolvedType === "auto") {
-    if (text.includes("húngaro") || text.includes("hungaro") || (text.includes("asignación") && !text.includes("asientos")) || (text.includes("asignacion") && !text.includes("asientos"))) {
+    // 1. Asignación / Húngaro
+    if (/\b(h[uú]ngaro)\b/i.test(text) || (/\basignaci[oó]n\b/i.test(text) && !text.includes('asientos')) || (text.includes('asignar') && (text.includes('operarios') || text.includes('máquinas') || text.includes('maquinas') || text.includes('tareas')))) {
       resolvedType = "hungaro";
-    } else if (text.includes("transporte") || text.includes("esquina noroeste") || text.includes("costos mínimos") || text.includes("costos minimos") || text.includes("vogel") || text.includes("vam") || text.includes("modi") || text.includes("orígenes") || text.includes("destinos")) {
+    // 2. Transporte y Distribución
+    } else if (/\b(transporte|esquina noroeste|costos m[ií]nimos?|vogel|vam|modi)\b/i.test(text) || 
+               (text.includes('orígenes') && text.includes('destinos') && (text.includes('oferta') || text.includes('demanda')))) {
       resolvedType = "transporte";
-    } else if (text.includes("árbol") || text.includes("arbol") || text.includes("rollback") || text.includes("nodo de decisión") || text.includes("nodo de azar")) {
-      resolvedType = "arbol";
-    } else if (text.includes("wald") || text.includes("hurwicz") || text.includes("savage") || text.includes("laplace") || text.includes("maximax") || text.includes("maximin") || text.includes("arrepentimiento") || text.includes("matriz de pagos") || text.includes("matriz de decisión") || text.includes("veip")) {
+    // 3. Teoría de Decisión (Incertidumbre / Matrices de Pago)
+    } else if (/\b(wald|maximin|maximax|laplace|hurwicz|savage|arrepentimiento|matriz de pagos|matriz de decisi[oó]n|veip)\b/i.test(text)) {
       resolvedType = "decision";
-    } else if (text.includes("markov") || text.includes("transición") || text.includes("transicion") || text.includes("estado estacionario") || text.includes("cadena de markov")) {
+    // 4. Cadenas de Markov
+    } else if (/\b(markov|transici[oó]n|estado estacionario)\b/i.test(text)) {
       resolvedType = "markov";
-    } else if (text.includes("red") || text.includes("pert") || text.includes("cpm") || text.includes("camino crítico") || text.includes("camino critico") || text.includes("holgura") || text.includes("predecesora")) {
+    // 5. Árboles de Decisión (Secuenciales / Incertidumbre con opciones de mercado o gerenciales)
+    } else if (/\b([aá]rbol|rollback|nodo de decisi[oó]n|nodo de azar)\b/i.test(text) || 
+               ((text.includes('decisión') || text.includes('decision') || text.includes('alternativa') || text.includes('gerente')) &&
+                (text.includes('estudio de mercado') || text.includes('pruebas de mercado') || text.includes('favorable') || text.includes('desfavorable') || text.includes('éxito') || text.includes('exito') || text.includes('aceptación') || text.includes('aceptacion')))) {
+      resolvedType = "arbol";
+    // 6. PERT / CPM (Redes de proyectos) - Delimitación estricta de palabras (evita falsos positivos como 'reduce' o 'alrededor')
+    } else if (/\b(pert|cpm|redes)\b/i.test(text) || text.includes('diagrama de red') || text.includes('red de actividades') || text.includes('camino crítico') || text.includes('camino critico') || text.includes('predecesora') || (text.includes('holgura') && text.includes('actividad'))) {
       resolvedType = "pert";
-    } else if (text.includes("simplex") || text.includes("programación lineal") || text.includes("programacion lineal") || text.includes("maximizar") || text.includes("minimizar") || text.includes("restricciones")) {
+    // 7. Simplex / Programación Lineal
+    } else if (/\b(simplex|programaci[oó]n lineal)\b/i.test(text) || ((text.includes('maximizar') || text.includes('minimizar')) && (text.includes('restricci') || text.includes('holgura')))) {
       resolvedType = "simplex";
     } else {
       resolvedType = "teoria";
