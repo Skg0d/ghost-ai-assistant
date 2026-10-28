@@ -297,7 +297,7 @@ body.theme-dark .modal-link-box a {
 }
 
 /* =========================================
-   STEALTH TOP BAR (ALWAYS 100% VISIBLE)
+   STEALTH TOP BAR (FAINT 20% BY DEFAULT, 100% ON HOVER)
    ========================================= */
 .stealth-bar {
   display: flex;
@@ -306,8 +306,14 @@ body.theme-dark .modal-link-box a {
   padding: 6px 10px;
   gap: 8px;
   flex-shrink: 0;
-  opacity: 1 !important; /* The slider and buttons never fade! */
+  opacity: 0.20; /* 20% opacity by default */
+  transition: opacity 0.2s ease;
   z-index: 100;
+}
+
+.stealth-bar:hover,
+.stealth-bar:focus-within {
+  opacity: 1 !important; /* Lights up to 100% on hover or when clicking */
 }
 
 .opacity-group {
@@ -317,20 +323,15 @@ body.theme-dark .modal-link-box a {
   flex: 1;
 }
 
-.toolbar-label {
-  font-size: 11px;
-  font-weight: 600;
-}
-
 .opacity-range {
   flex: 1;
   height: 4px;
   cursor: pointer;
-  max-width: 130px;
+  max-width: 140px;
 }
 
 .opacity-value {
-  width: 34px;
+  width: 32px;
   font-size: 11px;
   font-family: Consolas, monospace;
   font-weight: 600;
@@ -351,7 +352,8 @@ body.theme-dark .modal-link-box a {
   transition: all 0.15s;
 }
 
-#btn-theme {
+#btn-theme,
+#btn-settings {
   font-size: 13px;
   line-height: 1;
   padding: 3px 7px;

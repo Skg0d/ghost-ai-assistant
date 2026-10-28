@@ -111,8 +111,8 @@ opacitySlider.addEventListener("input", (e) => {
 const savedTheme = localStorage.getItem(STORAGE_THEME) || "light";
 applyTheme(savedTheme);
 
-const savedOpacity = localStorage.getItem(STORAGE_OPACITY) || "100";
-lastActiveOpacity = Math.max(20, parseInt(savedOpacity, 10) || 100);
+const savedOpacity = localStorage.getItem(STORAGE_OPACITY) || "20";
+lastActiveOpacity = Math.max(20, parseInt(savedOpacity, 10) || 20);
 applyOpacity(lastActiveOpacity, true);
 
 // API Key Management
