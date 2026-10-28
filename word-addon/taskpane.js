@@ -454,13 +454,13 @@ function buildFullPertOoxmlFromActivities(rawActivities) {
     layers[lvl].push(a);
   });
 
-  // Calculate coordinates (EMUs)
-  const nodeW = 650000;
-  const boxW = Math.floor(nodeW / 2);
-  const boxH = 240000;
-  const hH = 200000;
-  const dx = 550000;
-  const dy = 320000;
+  // Calculate coordinates (EMUs) - Perfectly scaled for A4 Word margins
+  const nodeW = 500000; // ~1.39 cm
+  const boxW = Math.floor(nodeW / 2); // 250000 (~0.69 cm)
+  const boxH = 150000; // ~0.42 cm
+  const hH = 120000; // ~0.33 cm
+  const dx = 250000; // ~0.69 cm gap
+  const dy = 130000; // ~0.36 cm gap
 
   const placedNodes = [];
   const sortedLevels = Object.keys(layers).map(Number).sort((a, b) => a - b);
@@ -494,8 +494,8 @@ function buildFullPertOoxmlFromActivities(rawActivities) {
     if (n.x + nodeW > maxX) maxX = n.x + nodeW;
     if (n.y + boxH * 3 + hH > maxY) maxY = n.y + boxH * 3 + hH;
   });
-  maxX += 150000;
-  maxY += 150000;
+  maxX += 100000;
+  maxY += 100000;
 
   let shapeCounter = 1000;
   const shapesXml = [];
@@ -525,17 +525,17 @@ function buildFullPertOoxmlFromActivities(rawActivities) {
             <w:p>
               <w:pPr>
                 <w:jc w:val="center"/>
-                <w:spacing w:line="200" w:lineRule="auto" w:before="0" w:after="0"/>
-                <w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/><w:sz w:val="17"/>${bTag}</w:rPr>
+                <w:spacing w:line="180" w:lineRule="auto" w:before="0" w:after="0"/>
+                <w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/><w:sz w:val="15"/>${bTag}</w:rPr>
               </w:pPr>
               <w:r>
-                <w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/><w:sz w:val="17"/>${bTag}</w:rPr>
+                <w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/><w:sz w:val="15"/>${bTag}</w:rPr>
                 <w:t>${text}</w:t>
               </w:r>
             </w:p>
           </w:txbxContent>
         </wps:txbx>
-        <wps:bodyPr anchor="ctr" lIns="5000" rIns="5000" tIns="5000" bIns="5000"/>
+        <wps:bodyPr anchor="ctr" lIns="3000" rIns="3000" tIns="3000" bIns="3000"/>
       </wps:wsp>
     `;
   }
@@ -553,7 +553,7 @@ function buildFullPertOoxmlFromActivities(rawActivities) {
     shapesXml.push(makeBox(sMid, nx, ny + boxH, nodeW, boxH, actLbl, crit, false, true));
     shapesXml.push(makeBox(shapeCounter++, nx, ny + boxH * 2, boxW, boxH, String(n.ls), crit, false, false));
     shapesXml.push(makeBox(shapeCounter++, nx + boxW, ny + boxH * 2, boxW, boxH, String(n.lf), crit, false, false));
-    shapesXml.push(makeBox(shapeCounter++, nx + Math.floor((nodeW - 400000) / 2), ny + boxH * 3, 400000, hH, `h=${n.h}`, crit, true, crit));
+    shapesXml.push(makeBox(shapeCounter++, nx + Math.floor((nodeW - 300000) / 2), ny + boxH * 3, 300000, hH, `h=${n.h}`, crit, true, crit));
   });
 
   edges.forEach(([src, dst, isCrit]) => {
@@ -568,8 +568,13 @@ function buildFullPertOoxmlFromActivities(rawActivities) {
     const x2 = dstNode.x;
     const y2 = dstNode.y + boxH + Math.floor(boxH / 2);
 
-    const cx = x2 - x1;
-    const cy = y2 - y1;
+    const minX = Math.min(x1, x2);
+    const minY = Math.min(y1, y2);
+    const cx = Math.max(12700, Math.abs(x2 - x1));
+    const cy = Math.max(12700, Math.abs(y2 - y1));
+    const flipH = x2 < x1 ? ' flipH="1"' : '';
+    const flipV = y2 < y1 ? ' flipV="1"' : '';
+
     const connId = shapeCounter++;
     const lw = isCrit ? 25000 : 12700;
 
@@ -578,7 +583,7 @@ function buildFullPertOoxmlFromActivities(rawActivities) {
         <wps:cNvPr id="${connId}" name="F${connId}"/>
         <wps:cNvCnPr><a:stCxn id="${srcId}" idx="3"/><a:endCxn id="${dstId}" idx="1"/></wps:cNvCnPr>
         <wps:spPr>
-          <a:xfrm><a:off x="${x1}" y="${y1}"/><a:ext cx="${cx}" cy="${cy}"/></a:xfrm>
+          <a:xfrm${flipH}${flipV}><a:off x="${minX}" y="${minY}"/><a:ext cx="${cx}" cy="${cy}"/></a:xfrm>
           <a:prstGeom prst="straightConnector1"><a:avLst/></a:prstGeom>
           <a:ln w="${lw}">
             <a:solidFill><a:srgbClr val="000000"/></a:solidFill>
@@ -818,18 +823,11 @@ ESTRUCTURA OBLIGATORIA DEL DESARROLLO (Paso a Paso):
 TIPO DE PROBLEMA: DIAGRAMA DE REDES / PERT - CPM.
 DEBES GENERAR EXACTAMENTE LAS SIGUIENTES SECCIONES Y TABLAS PARA MICROSOFT WORD:
 
-1. DIAGRAMA DE RED (CUADROS Y FLECHAS DE WORD):
-ESTRICTAMENTE PROHIBIDO USAR BLOQUES DE CÓDIGO (\`\`\`), LÍNEAS DE CONSOLA O SIGNOS IGUAL (===).
-Para que Word dibuje cuadros reales con bordes y flechas nativas:
-A. Representa cada rama de la red como una secuencia de nodos encuadrados entre corchetes [ ] conectados por flechas ➔:
-   - Ruta Principal (Crítica): [ INICIO ] ➔ [ Actividad (duración) ] ➔ ... ➔ [ FIN: T* ]
-   - Demás Rutas: [ INICIO ] ➔ ... ➔ [ FIN: duración ]
-   (Cada corchete [ ... ] se transformará automáticamente en un cuadro con borde negro sólido en Word).
-
-B. Tabla de Conexiones de Nodos de la Red (AON):
-   Genera una tabla cuadrada de Word que sintetice la estructura de la red:
-   | Nodo / Actividad | Duración (t) | Predecesoras Directas | Conecta hacia (Sucesoras) |
-   | :---: | :---: | :---: | :---: |
+1. TABLA MAESTRA DE ACTIVIDADES Y HOLGURAS (TABLA CUADRADA DE 9 COLUMNAS):
+Genera obligatoriamente la tabla con esta estructura exacta de 9 columnas, verificando cada cálculo aritmético celda por celda:
+| Actividad | Predecesora | Duración (t) | Inicio Temprano (ES) | Fin Temprano (EF) | Inicio Tardío (LS) | Fin Tardío (LF) | Holgura Total (H = LF - EF) | ¿Crítica? |
+| :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+(REGLA UNIVERSAL ESTRICTA: Para TODAS las actividades terminales F, M, N, P sin sucesoras, su Fin Tardío es IGUAL al tiempo máximo T* del proyecto: LF = T*. Ninguna actividad terminal puede tener LF diferente a T*).
 
 2. ANÁLISIS COMPARATIVO DE RUTAS DE LA RED (TABLA DE WORD):
 Genera obligatoriamente una tabla formal de Word con la comparación de todas las rutas posibles desde (INICIO) hasta (FIN):
@@ -837,32 +835,26 @@ Genera obligatoriamente una tabla formal de Word con la comparación de todas la
 | :---: | :--- | :---: | :---: | :---: |
 (Enumera cada ruta y resalta en negrita la ruta con mayor duración: T*).
 
-3. CÁLCULO DE TIEMPOS TEMPRANOS Y TARDÍOS (SIN CÓDIGO NI LATEX):
+3. MEMORIA DE CÁLCULO Y REGLAS DE TIEMPOS TEMPRANOS Y TARDÍOS (SIN CÓDIGO NI LATEX):
 CERO signos de dólar $, CERO comandos LaTeX como \\implies o \\text{}.
-Escribe las ecuaciones en texto limpio y natural para Word:
+Escribe las ecuaciones y reglas en texto limpio y natural para Word:
 - Paso hacia adelante (Forward Pass):
   * ES = 0 para actividades iniciales.
   * EF = ES + t.
   * ES = max(EF de predecesoras) para convergencias.
   * Tiempo mínimo del proyecto: T* = max(EF de terminales).
-  (Detalla los cálculos de cada actividad: ej: ES(C) = EF(A) = 3  →  EF(C) = 3 + 1 = 4 meses).
-- Paso hacia atrás (Backward Pass) - REGLA UNIVERSAL ESTRICTA:
-  * OBLIGATORIO: Para TODAS las actividades terminales (sin sucesoras), su Tiempo de Finalización Tardía es IGUAL a T* (LF = T*). Ninguna actividad puede tener LF > T*.
+- Paso hacia atrás (Backward Pass):
+  * Para terminales: LF = T*.
   * LS = LF - t.
   * LF = min(LS de sucesoras directas) para bifurcaciones.
-  (Detalla los cálculos paso a paso).
+  * Holguras: H = LF - EF = LS - ES.
 
-4. TABLA MAESTRA DE ACTIVIDADES Y HOLGURAS (TABLA CUADRADA DE 9 COLUMNAS):
-Genera obligatoriamente la tabla con esta estructura exacta de 9 columnas, verificando cada cálculo aritmético celda por celda:
-| Actividad | Predecesora | Duración (t) | Inicio Temprano (ES) | Fin Temprano (EF) | Inicio Tardío (LS) | Fin Tardío (LF) | Holgura Total (H = LF - EF) | ¿Crítica? |
-| :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
-
-5. CAMINO CRÍTICO Y CONCLUSIONES:
+4. CAMINO CRÍTICO Y CONCLUSIONES:
 - Duración mínima de realización del proyecto: T* (con unidad de tiempo).
 - Ruta Crítica: secuencia exacta de actividades con Holgura = 0.
 
-6. ESTRUCTURA JSON OCULTA (OBLIGATORIA AL FINAL DEL TEXTO):
-Al final de todo el texto, incluye un bloque HTML oculto con el resumen JSON de las actividades para dibujar el lienzo vectorial:
+5. ESTRUCTURA JSON OCULTA (OBLIGATORIA AL FINAL DEL TEXTO):
+Al final de todo el texto, incluye un bloque HTML oculto con el resumen JSON de las actividades para alimentar el generador vectorial del dibujo:
 <!-- PERT_DATA:
 [
   {"id": "A", "act": "A", "t": 3, "pred": [], "es": 0, "ef": 3, "ls": 0, "lf": 3, "h": 0, "crit": true},
@@ -923,7 +915,7 @@ ${consigna}`;
 
 // Call Google Gemini API
 async function callGeminiAPI(prompt, apiKey) {
-  const models = ["gemini-3.5-flash", "gemini-3.5-flash-lite", "gemini-flash-latest"];
+  const models = ["gemini-3.5-flash", "gemini-3.5-flash-lite", "gemini-flash-lite-latest", "gemini-flash-latest"];
   let lastError = null;
 
   for (const model of models) {
@@ -939,7 +931,7 @@ async function callGeminiAPI(prompt, apiKey) {
           contents: [{ parts: [{ text: prompt }] }],
           generationConfig: {
             temperature: 0.15,
-            maxOutputTokens: 4096,
+            maxOutputTokens: 8192,
           },
         }),
       });
