@@ -1833,17 +1833,20 @@ DIRECTIVAS METODOLÓGICAS OBLIGATORIAS:
    - En restricciones con '>=', NUNCA inventes variables artificiales ni penalizaciones con M.
 2. CONVENCIÓN CANÓNICA Y TRANSFORMACIÓN DE COTAS INFERIORES (MÉTODO OFICIAL DE FEDE):
    - COTAS INFERIORES SIMPLES (TÉCNICA DE FEDE PARA DISPONER DE BASE INICIAL VÁLIDA):
-     Si el problema contiene una restricción de cota mínima del tipo X_j >= k (ejemplo: 'ofrecer al menos 10 asientos para no fumadores' -> y >= 10):
+     Si el problema contiene una restricción de cota mínima EXPLÍCITA en el enunciado para una sola variable del tipo X_j >= k (ejemplo: 'ofrecer al menos 10 asientos para no fumadores' -> y >= 10):
      * APLICAR OBLIGATORIAMENTE la sustitución de cota inferior de Fede: escribir X_j = k + t_j (con t_j >= 0, donde k son las unidades mínimas obligatorias y t_j representa las unidades adicionales).
+     * ATENCIÓN: NUNCA deduzcas ni inventes cotas inferiores compuestas o artificiales (ej: deducir erróneamente x >= 31 combinando x > y y x + y >= 61). Si no está escrita textualmente como cota mínima directa de una sola variable, NO inventes sustituciones.
      * Sustituir en las restricciones: las desigualdades se transforman en '<=' con lados derechos reducidos pero estrictamente positivos (ej: x + (10 + t) <= 90  =>  x + t <= 80; 2x + 5(10 + t) <= 300  =>  2x + 5t <= 250).
      * Sustituir en la función objetivo: Z = 10x + 6(10 + t) = 10x + 6t + 60. Maximizar W = 10x + 6t y al final recuperar Z = W + 60 (expresado en miles de pesos o pesos directos).
      * Esta sustitución evita completamente variables artificiales y garantiza que el modelo transformado sea DIRECTAMENTE FACTIBLE PRIMAL, resolviéndose en 1 sola iteración de Simplex Primal puro sin necesidad de Simplex Dual.
+   - PROBLEMAS DE MINIMIZACIÓN O RESTRICCIONES '>=' GENERALES (SIMPLEX DUAL):
+     * Para problemas de MINIMIZACIÓN (ej: minimizar consumo Z = c1*x + c2*y): convertir a maximización Maximizar W' = -Z (ej: W' = -9x - 7y  =>  W' + 9x + 7y = 0).
+     * Multiplicar las restricciones '>=' por -1 para convertirlas en '<=' con términos independientes negativos (ej: x - y >= 1  =>  -x + y <= -1  =>  -x + y + S1 = -1; x + y >= 61  =>  -x - y <= -61  =>  -x - y + S3 = -61).
+     * Resolver directamente con SIMPLEX DUAL canónico sin inventar sustituciones ni variables artificiales.
    - FORMA ESTÁNDAR DE LAS RESTRICCIONES '<=':
      Agregar una variable de holgura (+S_i >= 0): ej. x + t + S1 = 80; 2x + 5t + S2 = 250.
-   - RESTRICCIONES '>=' GENERALES COMPLEJAS (cuando no sean cotas simples de una sola variable):
-     Multiplicar toda la desigualdad por -1, invertir a '<=' y agregar variable de holgura (+S_i): ej. -2X1 - 3X2 + S1 = -12, y resolver con Simplex Dual.
    - FUNCIÓN OBJETIVO:
-     Forma canónica de fila: W - 10x - 6t = 0 (o Z - c^T X = 0).
+     Forma canónica de fila: W - 10x - 6t = 0 (o W' + 9x + 7y = 0, o Z - c^T X = 0).
 3. SELECCIÓN RIGUROSA DEL ALGORITMO (PRIMAL O DUAL):
    - Si la transformación de cota inferior dejó todos los lados derechos >= 0: APLICAR DIRECTAMENTE SIMPLEX PRIMAL.
      * Columna Entrante (Columna Pivote): Variable con el coeficiente más negativo en la fila objetivo (W o Z).
