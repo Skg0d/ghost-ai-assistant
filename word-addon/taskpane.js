@@ -38,6 +38,19 @@ const turnBadge = document.getElementById("turn-badge");
 const turnUserBox = document.getElementById("turn-user-box");
 const turnUserText = document.getElementById("turn-user-text");
 
+// Toast Feedback Notification
+const toastEl = document.getElementById("toast");
+let toastTimer = null;
+function showToast(msg) {
+  if (!toastEl) return;
+  toastEl.textContent = msg;
+  toastEl.classList.add("show");
+  if (toastTimer) clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => {
+    toastEl.classList.remove("show");
+  }, 2500);
+}
+
 // Stealth Bar Controls
 const stealthBar = document.getElementById("stealth-bar");
 const btnTheme = document.getElementById("btn-theme");
@@ -310,10 +323,11 @@ btnInsertWord.addEventListener("click", async () => {
     try {
       await Word.run(async (context) => {
         const selection = context.document.getSelection();
-        selection.insertHtml(styledHtml, Word.InsertLocation.replace);
+        const range = selection.insertHtml(styledHtml, Word.InsertLocation.replace);
+        range.select("End");
         await context.sync();
       });
-      alert("Desarrollo y tablas insertados exitosamente en tu documento de Word.");
+      showToast("✓ Desarrollo insertado en el cursor");
       return;
     } catch (e) {
       console.warn("Word.run insertHtml fallback:", e);
@@ -324,7 +338,7 @@ btnInsertWord.addEventListener("click", async () => {
   if (typeof Office !== "undefined" && Office.context && Office.context.document) {
     Office.context.document.setSelectedDataAsync(styledHtml, { coercionType: Office.CoercionType.Html }, (result) => {
       if (result.status === Office.AsyncResultStatus.Succeeded) {
-        alert("Desarrollo insertado exitosamente en tu Word.");
+        showToast("✓ Desarrollo insertado en el cursor");
       } else {
         alert("Error al insertar en Word: " + result.error.message);
       }
@@ -332,7 +346,7 @@ btnInsertWord.addEventListener("click", async () => {
   } else {
     // If testing in standard browser outside Word
     navigator.clipboard.writeText(currentRawMarkdown);
-    alert("Copiado al portapapeles. Pégalo en tu Word con Ctrl+V.");
+    showToast("✓ Copiado al portapapeles");
   }
 });
 
@@ -340,7 +354,7 @@ btnInsertWord.addEventListener("click", async () => {
 btnCopyClipboard.addEventListener("click", () => {
   if (!currentRawMarkdown) return;
   navigator.clipboard.writeText(currentRawMarkdown).then(() => {
-    alert("Desarrollo copiado al portapapeles.");
+    showToast("✓ Copiado al portapapeles");
   });
 });
 
@@ -810,10 +824,11 @@ if (btnInsertDrawing) {
       try {
         await Word.run(async (context) => {
           const selection = context.document.getSelection();
-          selection.insertOoxml(currentPertOoxml, Word.InsertLocation.replace);
+          const range = selection.insertOoxml(currentPertOoxml, Word.InsertLocation.replace);
+          range.select("End");
           await context.sync();
         });
-        alert("¡Diagrama de red vectorial insertado exitosamente en Word! Puedes editarlo o reacomodar nodos con doble clic.");
+        showToast("✓ Diagrama insertado en la posición del cursor");
         return;
       } catch (e) {
         console.warn("Word.run insertOoxml fallback:", e);
@@ -824,7 +839,7 @@ if (btnInsertDrawing) {
     if (typeof Office !== "undefined" && Office.context && Office.context.document) {
       Office.context.document.setSelectedDataAsync(currentPertOoxml, { coercionType: Office.CoercionType.Ooxml }, (result) => {
         if (result.status === Office.AsyncResultStatus.Succeeded) {
-          alert("¡Diagrama insertado exitosamente en Word!");
+          showToast("✓ Diagrama insertado en la posición del cursor");
         } else {
           alert("Error al insertar: " + result.error.message);
         }
@@ -851,17 +866,18 @@ if (btnTestDrawing) {
       if (typeof Word !== "undefined" && Word.run) {
         await Word.run(async (context) => {
           const selection = context.document.getSelection();
-          selection.insertOoxml(opcXml, Word.InsertLocation.replace);
+          const range = selection.insertOoxml(opcXml, Word.InsertLocation.replace);
+          range.select("End");
           await context.sync();
         });
-        alert("¡Éxito! Lienzo de dibujo con 3 nodos insertado. Haz doble clic para editar.");
+        showToast("✓ Dibujo de prueba insertado en el cursor");
         return;
       }
 
       if (typeof Office !== "undefined" && Office.context && Office.context.document) {
         Office.context.document.setSelectedDataAsync(opcXml, { coercionType: Office.CoercionType.Ooxml }, (result) => {
           if (result.status === Office.AsyncResultStatus.Succeeded) {
-            alert("¡Éxito! Lienzo de dibujo insertado.");
+            showToast("✓ Dibujo de prueba insertado en el cursor");
           } else {
             alert("Error al insertar OOXML: " + result.error.message);
           }

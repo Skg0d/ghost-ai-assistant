@@ -15,7 +15,7 @@
   <!-- Marked library for markdown to clean HTML conversion -->
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 
-  <link rel="stylesheet" href="taskpane.css?v=3.8" />
+  <link rel="stylesheet" href="taskpane.css?v=3.9" />
 </head>
 <body class="theme-light">
   <!-- Invisible Right-Edge Panic Zone -->
@@ -122,15 +122,23 @@
         </button>
       </div>
 
+      <!-- Cursor Position Hint -->
+      <div class="cursor-hint">
+        <span>📌 Se inserta exactamente donde esté titilando tu cursor en Word</span>
+      </div>
+
       <button class="btn btn-insert" id="btn-insert-word">
         Insertar Desarrollo en Word
       </button>
 
-      <button class="btn btn-secondary" id="btn-insert-drawing" style="display: none; padding: 7px; font-weight: bold; border: 1.5px solid #000; font-size: 11px;" title="Inserta el diagrama de red vectorial editable en tu Word">
+      <button class="btn btn-secondary" id="btn-insert-drawing" style="display: none; padding: 7px; font-weight: bold; border: 1.5px solid #000; font-size: 11px;" title="Inserta el diagrama de red vectorial exactamente en la posición de tu cursor en Word">
         Insertar Diagrama de Red (Dibujo Word)
       </button>
     </div>
   </div>
+
+  <!-- Floating Toast Notification -->
+  <div id="toast" class="toast"></div>
 
   <!-- API Key Modal -->
   <div id="api-modal" class="modal">
@@ -150,6 +158,6 @@
     </div>
   </div>
 
-  <script src="taskpane.js?v=3.8"></script>
+  <script src="taskpane.js?v=3.9"></script>
 </body>
 </html>
