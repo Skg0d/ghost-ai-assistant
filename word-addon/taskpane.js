@@ -429,6 +429,130 @@ function parsePertTable(markdownText) {
 // DECISION TREE DATA PARSER & OOXML BUILDER
 // ==========================================
 
+function flattenHierarchicalTree(root) {
+  if (!root) return null;
+  const nodes = [];
+  const edges = [];
+  let idCounter = 1;
+
+  function traverse(item, parentId = null, edgeLabel = "", edgeProb = "", edgeCost = "") {
+    const id = "N" + (idCounter++);
+    const ntype = item.type || ((item.children && item.children.length > 0) ? "chance" : "terminal");
+    const label = item.name || item.label || id;
+    const vme = item.vme ? String(item.vme) : "";
+    const payoff = (item.payout !== undefined || item.payoff !== undefined) 
+      ? String(item.payout ?? item.payoff) 
+      : "";
+
+    nodes.push({ id, type: ntype, label, vme, payoff });
+
+    if (parentId) {
+      edges.push({
+        from: parentId,
+        to: id,
+        label: edgeLabel,
+        prob: edgeProb,
+        cost: edgeCost,
+        optimal: false
+      });
+    }
+
+    if (Array.isArray(item.children)) {
+      item.children.forEach(ch => {
+        let chLabel = ch.name || ch.label || "";
+        let chProb = "";
+        let chCost = "";
+        const probMatch = chLabel.match(/\((0\.\d+|1(?:\.0+)?|\d+[\/\.]\d+)\)/);
+        if (probMatch) {
+          chProb = probMatch[1];
+          chLabel = chLabel.replace(probMatch[0], "").trim();
+        }
+        traverse(ch, id, chLabel, chProb, chCost);
+      });
+    }
+  }
+
+  traverse(root);
+  return { nodes, edges };
+}
+
+function parseTreeFromTrajectoryTable(text) {
+  if (!text) return null;
+  const lines = text.split("\n");
+  const rows = [];
+  for (const line of lines) {
+    if (!line.includes("|")) continue;
+    const parts = line.split("|").map(p => p.trim());
+    if (parts.length >= 3) {
+      let traj = parts.find(p => p.includes("→") || p.includes("->"));
+      const payoff = parts[parts.length - 1];
+      
+      if (!traj && parts.length >= 4 && parts[1] && !parts[1].toLowerCase().includes("camino") && !parts[1].toLowerCase().includes("nodo")) {
+        traj = parts[1];
+      }
+
+      if (traj && payoff && /^[+-]?\d+/.test(payoff)) {
+        rows.push({
+          path: traj.split(/→|->/).map(s => s.trim()).filter(Boolean),
+          payoff: payoff
+        });
+      }
+    }
+  }
+
+  if (rows.length < 2) return null;
+
+  const root = { id: "root", type: "decision", label: "Decidir", children: {} };
+  let counter = 1;
+
+  rows.forEach(r => {
+    let curr = root;
+    for (let i = 0; i < r.path.length; i++) {
+      const step = r.path[i];
+      if (!curr.children[step]) {
+        const isLast = (i === r.path.length - 1);
+        curr.children[step] = {
+          id: "N" + (counter++),
+          label: step,
+          type: isLast ? "terminal" : "chance",
+          payoff: isLast ? r.payoff : "",
+          children: {}
+        };
+      }
+      curr = curr.children[step];
+    }
+  });
+
+  const nodes = [];
+  const edges = [];
+
+  function traverse(node) {
+    nodes.push({
+      id: node.id,
+      type: node.type,
+      label: node.label,
+      payoff: node.payoff || "",
+      vme: ""
+    });
+
+    Object.keys(node.children).forEach(branchLabel => {
+      const child = node.children[branchLabel];
+      edges.push({
+        from: node.id,
+        to: child.id,
+        label: branchLabel,
+        prob: "",
+        cost: "",
+        optimal: false
+      });
+      traverse(child);
+    });
+  }
+
+  traverse(root);
+  return { nodes, edges };
+}
+
 function parseTreeData(markdownText) {
   if (!markdownText) return null;
 
@@ -438,23 +562,33 @@ function parseTreeData(markdownText) {
   if (commentMatch) {
     rawJson = commentMatch[1].trim();
   } else {
-    // 2. Fallback: Check for JSON code block containing "nodes" and "edges"
-    const codeMatch = markdownText.match(/```(?:json)?\s*(\{\s*"nodes"[\s\S]*?"edges"[\s\S]*?\})\s*```/i);
+    // 2. Check for JSON code block
+    const codeMatch = markdownText.match(/```(?:json)?\s*(\{\s*[\s\S]*?\})\s*```/i);
     if (codeMatch) rawJson = codeMatch[1].trim();
   }
 
   if (rawJson) {
     try {
       rawJson = rawJson.replace(/^```json\s*/i, "").replace(/```\s*$/, "").trim();
-      // Clean trailing commas before } or ]
       rawJson = rawJson.replace(/,\s*([\]}])/g, "$1");
       const data = JSON.parse(rawJson);
+      // Flat graph format
       if (data && Array.isArray(data.nodes) && Array.isArray(data.edges) && data.nodes.length >= 2) {
         return data;
+      }
+      // Hierarchical tree format
+      if (data && (Array.isArray(data.children) || data.name || data.label)) {
+        return flattenHierarchicalTree(data);
       }
     } catch (e) {
       console.warn("Failed to parse TREE_DATA JSON:", e);
     }
+  }
+
+  // 3. Fallback: Parse from Markdown table of trajectories & terminal payoffs
+  const tableTree = parseTreeFromTrajectoryTable(markdownText);
+  if (tableTree && tableTree.nodes && tableTree.nodes.length >= 2) {
+    return tableTree;
   }
 
   return null;
@@ -1865,26 +1999,27 @@ ESTRUCTURA OBLIGATORIA DEL DESARROLLO:
    - Indicar explícitamente la estrategia secuencial recomendada (qué hacer inicialmente y qué decisión tomar ante cada resultado posterior observado).
    - Valor Monetario Esperado óptimo final con unidades.
 
-5. ESTRUCTURA JSON OCULTA DEL ÁRBOL (OBLIGATORIA AL FINAL DEL TEXTO):
-Al final de todo el texto, incluye obligatoriamente un bloque HTML oculto con la estructura JSON completa del árbol para alimentar el generador vectorial nativo de Word:
+5. ESTRUCTURA JSON OCULTA DEL ÁRBOL (OBLIGATORIA, PUEDE IR TRAS LA SECCIÓN 2 O AL FINAL):
+Incluye un bloque HTML oculto con la estructura JSON completa del árbol para alimentar el generador vectorial nativo de Word:
 <!-- TREE_DATA:
 {
   "nodes": [
-    {"id": "D1", "type": "decision", "label": "1", "vme": "100 M"},
-    {"id": "A1", "type": "chance", "label": "2", "vme": "10.8 M"},
-    {"id": "T1", "type": "terminal", "label": "", "payoff": "100 M"}
+    {"id": "D1", "type": "decision", "label": "Decidir", "vme": "100 M"},
+    {"id": "A1", "type": "chance", "label": "Estudio", "vme": "5 M"},
+    {"id": "T1", "type": "terminal", "label": "Venta", "payoff": "100 M"}
   ],
   "edges": [
-    {"from": "D1", "to": "T1", "label": "Vender a gran compañía", "prob": "", "cost": "0", "optimal": true},
-    {"from": "D1", "to": "A1", "label": "Contratar estudio mercado", "prob": "", "cost": "-8 M", "optimal": false}
+    {"from": "D1", "to": "T1", "label": "Vender directo", "prob": "", "cost": "0", "optimal": true},
+    {"from": "D1", "to": "A1", "label": "Estudiar mercado", "prob": "", "cost": "-8 M", "optimal": false}
   ]
 }
 -->
 REGLAS PARA TREE_DATA:
 - "nodes": lista con TODOS los nodos. "type" debe ser exactamente "decision" (cuadrado), "chance" (círculo) o "terminal" (triángulo).
-- "vme": valor monetario esperado del nodo según el rollback (ej: "100 M", "10.8 M").
-- "payoff": valor neto en los nodos terminales (ej: "100 M", "+27 M", "-13 M").
-- "edges": lista con TODAS las ramas. "optimal" es true para las ramas de la política óptima.`;
+- "vme": valor monetario esperado del nodo según el rollback (ej: "100 M", "5 M", "39 M").
+- "payoff": valor neto en los nodos terminales (ej: "100 M", "+27 M", "-13 M", "+147 M").
+- "edges": lista con TODAS las ramas. "optimal" es true para las ramas de la política óptima recomendada.
+- También se acepta formato jerárquico {"name": "...", "type": "decision", "children": [...]}.`;
   } else if (resolvedType === "markov") {
     typeInstruction = `
 TIPO DE PROBLEMA: CADENAS DE MARKOV Y PROCESOS DE TRANSICIÓN (REGLAS DE CÁTEDRA).
