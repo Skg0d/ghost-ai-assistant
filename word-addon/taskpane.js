@@ -1305,7 +1305,13 @@ ${consigna}`;
 
 // Call Google Gemini API (Single prompt or Multi-turn History)
 async function callGeminiAPI(promptOrContents, apiKey) {
-  const models = ["gemini-3.5-flash", "gemini-3.5-flash-lite", "gemini-flash-latest"];
+  const models = [
+    "gemini-3.8-flash",
+    "gemini-3.1-pro-preview",
+    "gemini-3.5-flash",
+    "gemini-3.5-flash-lite",
+    "gemini-flash-latest"
+  ];
   let lastError = null;
 
   const contentsPayload = Array.isArray(promptOrContents)
