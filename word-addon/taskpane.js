@@ -347,18 +347,55 @@ ESTRUCTURA OBLIGATORIA DEL DESARROLLO (Paso a Paso):
   } else if (type === "pert" || consigna.toLowerCase().includes("red") || consigna.toLowerCase().includes("camino crítico") || consigna.toLowerCase().includes("holgura")) {
     typeInstruction = `
 TIPO DE PROBLEMA: DIAGRAMA DE REDES / PERT - CPM.
-ESTRUCTURA OBLIGATORIA DEL DESARROLLO (Paso a Paso):
-1. ANÁLISIS DE PREDECESORAS Y CAMINOS:
-   - Identificación de todas las rutas posibles desde el inicio hasta el fin y cálculo de la duración de cada camino.
-2. CÁLCULO DE TIEMPOS TEMPRANOS Y TARDÍOS:
-   - Paso hacia adelante (Forward Pass): Tiempos de inicio temprano (ES) y finalización temprana (EF).
-   - Paso hacia atrás (Backward Pass): Tiempos de finalización tardía (LF) e inicio tardío (LS).
-3. TABLA GENERAL DE ACTIVIDADES Y HOLGURAS (Tabla Markdown obligatoria con las siguientes columnas):
-   | Actividad | Predecesora | Duración (t) | Inicio Temprano (ES) | Fin Temprano (EF) | Inicio Tardío (LS) | Fin Tardío (LF) | Holgura Total (H = LF - EF) | ¿Crítica? |
-4. CAMINO CRÍTICO Y DURACIÓN DEL PROYECTO:
-   - Identificación explícita de las actividades con Holgura = 0.
-   - Ruta del Camino Crítico (ej: A -> C -> H -> I -> N...).
-   - Tiempo mínimo de realización del proyecto.`;
+DEBES GENERAR EXACTAMENTE LAS SIGUIENTES SECCIONES Y PLANTILLAS CUADRADAS EN ESTE ORDEN:
+
+1. DIAGRAMA DE RED (MÉTODO AON - ACTIVIDAD EN EL NODO):
+Representa obligatoriamente el diagrama de red completo dentro de un bloque de código monospaciado (\`\`\`text ... \`\`\`) mostrando la estructura visual de niveles, arcos y bifurcaciones desde (INICIO) hasta (FIN).
+Plantilla obligatoria del esquema de red:
+\`\`\`text
+=============================================================================
+                       DIAGRAMA DE RED (MÉTODO AON)
+=============================================================================
+NIVEL 0 (INICIO)  -->  NIVEL 1         -->  NIVEL 2    -->  NIVEL 3   -->  NIVEL 4 (FIN)
+-----------------------------------------------------------------------------
+[ (INICIO) ]
+    │
+    ├──> [ A (t=...) ] ──┬──> [ C (t=...) ] ──> ... ───────────────> (FIN)
+    │                    └──> [ ... ] ─────────────────────────────> (FIN)
+    ...
+-----------------------------------------------------------------------------
+* RUTA CRÍTICA RESALTADA: [INICIO] -> [Act1] -> [Act2] -> ... -> [FIN]
+=============================================================================
+\`\`\`
+
+2. ANÁLISIS DE RUTAS POSIBLES Y DURACIONES:
+Enumera cada uno de los caminos posibles desde (INICIO) hasta (FIN) sumando explícitamente las duraciones:
+- Ruta 1: ... (Duración total = X)
+- Ruta 2: ... (Duración total = Y)
+Identifica formalmente la ruta de mayor duración, que determina el tiempo mínimo del proyecto: T*.
+
+3. REGLAS MATEMÁTICAS ESTRICTAS DE TIEMPOS TEMPRANOS Y TARDÍOS (Paso a Paso):
+- Paso hacia adelante (Forward Pass):
+  * Para actividades iniciales: ES = 0.
+  * EF = ES + t.
+  * Para nodos con múltiples predecesoras: ES = max(EF de todas las predecesoras directas).
+  * Duración mínima del proyecto: T* = max(EF de todas las actividades terminales).
+- Paso hacia atrás (Backward Pass) - REGLA UNIVERSAL ESTRICTA:
+  * OBLIGATORIO: Para TODAS las actividades terminales (aquellas sin sucesoras), su Tiempo de Finalización Tardía es IGUAL a la duración total del proyecto: LF = T*.
+  * NINGUNA actividad en todo el proyecto puede tener LF > T* o LS > T*.
+  * LS = LF - t.
+  * Para nodos con múltiples sucesoras: LF = min(LS de todas las sucesoras directas).
+  * Holgura Total: H = LF - EF = LS - ES.
+  * Condición de criticidad: Una actividad es crítica si y solo si su Holgura Total es 0 (H = 0).
+
+4. TABLA GENERAL DE ACTIVIDADES Y HOLGURAS (Plantilla Markdown Cuadrada):
+Genera obligatoriamente la tabla con esta estructura exacta de 9 columnas, verificando cada cálculo aritmético celda por celda:
+| Actividad | Predecesora | Duración (t) | Inicio Temprano (ES) | Fin Temprano (EF) | Inicio Tardío (LS) | Fin Tardío (LF) | Holgura Total (H = LF - EF) | ¿Crítica? |
+| :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+
+5. CAMINO CRÍTICO Y CONCLUSIONES:
+- Duración mínima de realización del proyecto: T* (con unidad de tiempo).
+- Ruta Crítica: secuencia exacta de actividades con Holgura = 0.`;
   } else if (type === "arbol" || consigna.toLowerCase().includes("árbol") || consigna.toLowerCase().includes("probabilidades") || consigna.toLowerCase().includes("estudio de mercado")) {
     typeInstruction = `
 TIPO DE PROBLEMA: TEORÍA DE LA DECISIÓN / ÁRBOLES DE DECISIÓN.
