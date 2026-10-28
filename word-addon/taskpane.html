@@ -15,7 +15,7 @@
   <!-- Marked library for markdown to clean HTML conversion -->
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 
-  <link rel="stylesheet" href="taskpane.css?v=3.6" />
+  <link rel="stylesheet" href="taskpane.css?v=3.7" />
 </head>
 <body class="theme-light">
   <!-- Invisible Right-Edge Panic Zone -->
@@ -80,14 +80,47 @@
 
     <!-- Result Area -->
     <div id="result-container" style="display: none; flex-direction: column; gap: 8px; flex: 1;">
-      <div class="result-header">
-        <div class="section-label">Desarrollo y Tablas</div>
-        <button class="btn btn-secondary" id="btn-copy-clipboard" style="padding: 3px 8px; font-size: 11px;">
-          Copiar
+      
+      <!-- Pinned Previous Consultation Header (Sticky Accordion Header) -->
+      <div id="pinned-history-banner" class="pinned-history-banner" style="display: none;">
+        <button id="btn-pinned-prev" class="btn-pinned-header" title="Ir a la consulta anterior">
+          <span class="pinned-icon">⤴</span>
+          <span class="pinned-tag">Anterior:</span>
+          <span id="pinned-prev-title" class="pinned-title">...</span>
         </button>
       </div>
 
+      <!-- Navigation & Turn Status Bar -->
+      <div class="result-header">
+        <div class="history-controls">
+          <button class="btn btn-secondary btn-nav-pill" id="btn-turn-prev" title="Consulta anterior">◀</button>
+          <span id="turn-badge" class="turn-badge">Consulta 1 de 1</span>
+          <button class="btn btn-secondary btn-nav-pill" id="btn-turn-next" title="Siguiente consulta" disabled>▶</button>
+        </div>
+        <div style="display: flex; gap: 4px;">
+          <button class="btn btn-secondary" id="btn-copy-clipboard" style="padding: 3px 8px; font-size: 11px;">
+            Copiar
+          </button>
+        </div>
+      </div>
+
+      <!-- User Query Snippet for Active Turn -->
+      <div id="turn-user-box" class="turn-user-box">
+        <span class="turn-user-tag">Consigna / Pregunta:</span>
+        <div id="turn-user-text" class="turn-user-text"></div>
+      </div>
+
+      <!-- Rendered Solution View -->
       <div id="result-view" class="result-card"></div>
+
+      <!-- Pinned Next Consultation Banner (Visible when browsing past turns) -->
+      <div id="pinned-next-banner" class="pinned-history-banner pinned-next" style="display: none;">
+        <button id="btn-pinned-next" class="btn-pinned-header" title="Ir a la siguiente consulta">
+          <span class="pinned-tag">Siguiente:</span>
+          <span id="pinned-next-title" class="pinned-title">...</span>
+          <span class="pinned-icon">⤵</span>
+        </button>
+      </div>
 
       <button class="btn btn-insert" id="btn-insert-word">
         Insertar Desarrollo en Word
@@ -117,6 +150,6 @@
     </div>
   </div>
 
-  <script src="taskpane.js?v=3.6"></script>
+  <script src="taskpane.js?v=3.7"></script>
 </body>
 </html>

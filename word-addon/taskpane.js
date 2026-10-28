@@ -7,6 +7,8 @@ let currentRawMarkdown = "";
 let currentRenderedHtml = "";
 let currentPertOoxml = null;
 let chatHistory = [];
+let chatTurns = [];
+let activeTurnIndex = -1;
 
 // Elements
 const stealthContent = document.getElementById("stealth-content");
@@ -22,6 +24,19 @@ const btnCopyClipboard = document.getElementById("btn-copy-clipboard");
 const resultContainer = document.getElementById("result-container");
 const resultView = document.getElementById("result-view");
 const loadingBox = document.getElementById("loading");
+
+// History Navigation & Pinned Header Elements (v3.7)
+const pinnedHistoryBanner = document.getElementById("pinned-history-banner");
+const btnPinnedPrev = document.getElementById("btn-pinned-prev");
+const pinnedPrevTitle = document.getElementById("pinned-prev-title");
+const pinnedNextBanner = document.getElementById("pinned-next-banner");
+const btnPinnedNext = document.getElementById("btn-pinned-next");
+const pinnedNextTitle = document.getElementById("pinned-next-title");
+const btnTurnPrev = document.getElementById("btn-turn-prev");
+const btnTurnNext = document.getElementById("btn-turn-next");
+const turnBadge = document.getElementById("turn-badge");
+const turnUserBox = document.getElementById("turn-user-box");
+const turnUserText = document.getElementById("turn-user-text");
 
 // Stealth Bar Controls
 const stealthBar = document.getElementById("stealth-bar");
@@ -191,9 +206,14 @@ btnClear.addEventListener("click", () => {
   currentRenderedHtml = "";
   currentPertOoxml = null;
   chatHistory = [];
+  chatTurns = [];
+  activeTurnIndex = -1;
   btnSolve.textContent = "Resolver Paso a Paso";
   promptInput.placeholder = "Selecciona el ejercicio en tu hoja de Word y toca 'Tomar de Word', o pega la consigna aquí...";
   if (btnInsertDrawing) btnInsertDrawing.style.display = "none";
+  if (pinnedHistoryBanner) pinnedHistoryBanner.style.display = "none";
+  if (pinnedNextBanner) pinnedNextBanner.style.display = "none";
+  if (resultView) resultView.innerHTML = "";
 });
 
 // Take selection from Word document
@@ -829,6 +849,91 @@ if (btnTestDrawing) {
   });
 }
 
+// Display a specific conversation turn and update pinned headers
+function showTurn(idx) {
+  if (idx < 0 || idx >= chatTurns.length) return;
+  activeTurnIndex = idx;
+  const turn = chatTurns[idx];
+
+  // 1. Sync active data for Word insertion and copy
+  currentRawMarkdown = turn.responseMarkdown;
+  currentRenderedHtml = turn.renderedHtml;
+  currentPertOoxml = turn.pertOoxml;
+
+  // 2. Update user query box
+  if (turnUserText) turnUserText.textContent = turn.query;
+
+  // 3. Render markdown HTML into resultView
+  if (resultView) {
+    resultView.innerHTML = turn.renderedHtml;
+    resultView.scrollTop = 0;
+  }
+
+  // 4. Update PERT vector drawing button
+  if (btnInsertDrawing) {
+    btnInsertDrawing.style.display = turn.pertOoxml ? "block" : "none";
+  }
+
+  // 5. Update Turn Badge
+  if (turnBadge) {
+    turnBadge.textContent = `Consulta ${idx + 1} de ${chatTurns.length}`;
+  }
+
+  // 6. Navigation Buttons state
+  if (btnTurnPrev) btnTurnPrev.disabled = (idx <= 0);
+  if (btnTurnNext) btnTurnNext.disabled = (idx >= chatTurns.length - 1);
+
+  // 7. Pinned Previous Consultation Header (Sticky above current response)
+  if (pinnedHistoryBanner && pinnedPrevTitle) {
+    if (idx > 0) {
+      const prevTurn = chatTurns[idx - 1];
+      const snippet = (prevTurn.query || "").replace(/\s+/g, " ").trim();
+      const shortSnippet = snippet.length > 45 ? snippet.slice(0, 42) + "..." : snippet;
+      pinnedPrevTitle.textContent = `#${idx}: "${shortSnippet}"`;
+      pinnedHistoryBanner.style.display = "block";
+    } else {
+      pinnedHistoryBanner.style.display = "none";
+    }
+  }
+
+  // 8. Pinned Next Consultation Banner (When browsing past turns)
+  if (pinnedNextBanner && pinnedNextTitle) {
+    if (idx < chatTurns.length - 1) {
+      const nextTurn = chatTurns[idx + 1];
+      const snippet = (nextTurn.query || "").replace(/\s+/g, " ").trim();
+      const shortSnippet = snippet.length > 45 ? snippet.slice(0, 42) + "..." : snippet;
+      pinnedNextTitle.textContent = `#${idx + 2}: "${shortSnippet}"`;
+      pinnedNextBanner.style.display = "block";
+    } else {
+      pinnedNextBanner.style.display = "none";
+    }
+  }
+
+  resultContainer.style.display = "flex";
+}
+
+// Navigation button listeners
+if (btnPinnedPrev) {
+  btnPinnedPrev.addEventListener("click", () => {
+    if (activeTurnIndex > 0) showTurn(activeTurnIndex - 1);
+  });
+}
+if (btnPinnedNext) {
+  btnPinnedNext.addEventListener("click", () => {
+    if (activeTurnIndex < chatTurns.length - 1) showTurn(activeTurnIndex + 1);
+  });
+}
+if (btnTurnPrev) {
+  btnTurnPrev.addEventListener("click", () => {
+    if (activeTurnIndex > 0) showTurn(activeTurnIndex - 1);
+  });
+}
+if (btnTurnNext) {
+  btnTurnNext.addEventListener("click", () => {
+    if (activeTurnIndex < chatTurns.length - 1) showTurn(activeTurnIndex + 1);
+  });
+}
+
 // Solve exercise & Multi-turn Conversational Memory
 btnSolve.addEventListener("click", async () => {
   const query = promptInput.value.trim();
@@ -872,7 +977,6 @@ REGLAS DE FORMATO:
   try {
     const responseText = await callGeminiAPI(chatHistory, apiKey);
     chatHistory.push({ role: "model", parts: [{ text: responseText }] });
-    currentRawMarkdown = responseText;
 
     // Switch UI to multi-turn mode
     btnSolve.textContent = "Preguntar / Ajustar";
@@ -880,29 +984,36 @@ REGLAS DE FORMATO:
     promptInput.placeholder = "Haz una pregunta de seguimiento, pide un ajuste o toca 'Limpiar' para un nuevo ejercicio...";
 
     // Check if response contains PERT data to generate native Vector Drawing Canvas
+    let turnPertOoxml = null;
     const pertActivities = parsePertTable(responseText);
     if (pertActivities && pertActivities.length >= 2) {
       try {
-        currentPertOoxml = buildFullPertOoxmlFromActivities(pertActivities);
-        if (btnInsertDrawing) btnInsertDrawing.style.display = "block";
+        turnPertOoxml = buildFullPertOoxmlFromActivities(pertActivities);
       } catch (e) {
         console.warn("Error building full PERT OOXML:", e);
-        currentPertOoxml = null;
-        if (btnInsertDrawing) btnInsertDrawing.style.display = "none";
       }
-    } else {
-      if (!currentPertOoxml && btnInsertDrawing) btnInsertDrawing.style.display = "none";
     }
 
     // Convert markdown to clean HTML with native Word elements
+    let renderedHtml = "";
     if (typeof marked !== "undefined" && marked.parse) {
-      currentRenderedHtml = prepareWordHtml(marked.parse(responseText));
+      renderedHtml = prepareWordHtml(marked.parse(responseText));
     } else {
-      currentRenderedHtml = prepareWordHtml(responseText);
+      renderedHtml = prepareWordHtml(responseText);
     }
 
-    resultView.innerHTML = currentRenderedHtml;
-    resultContainer.style.display = "flex";
+    // Record turn
+    const newTurn = {
+      index: chatTurns.length,
+      query: query,
+      responseMarkdown: responseText,
+      renderedHtml: renderedHtml,
+      pertOoxml: turnPertOoxml,
+    };
+    chatTurns.push(newTurn);
+
+    // Show latest turn (automatically updates pinned previous header!)
+    showTurn(chatTurns.length - 1);
   } catch (err) {
     chatHistory.pop(); // Revert user message on error so history stays valid
     alert("Error al resolver: " + err.message);

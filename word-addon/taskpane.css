@@ -571,3 +571,172 @@ body.theme-dark .modal-link-box a {
   font-weight: 700;
   text-decoration: underline;
 }
+
+/* ========================================================
+   Pinned History Banners & Multi-Turn Navigation (v3.7)
+   ======================================================== */
+.pinned-history-banner {
+  border-radius: 6px;
+  overflow: hidden;
+  transition: all 0.2s ease;
+}
+
+.btn-pinned-header {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 10px;
+  font-size: 11px;
+  text-align: left;
+  cursor: pointer;
+  border-radius: 6px;
+  transition: background 0.15s ease, border-color 0.15s ease;
+  outline: none;
+}
+
+.pinned-icon {
+  font-weight: 900;
+  font-size: 13px;
+  flex-shrink: 0;
+  line-height: 1;
+}
+
+.pinned-tag {
+  font-weight: 800;
+  font-size: 10px;
+  flex-shrink: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.pinned-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+  font-size: 11px;
+}
+
+.history-controls {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.btn-nav-pill {
+  padding: 2px 7px !important;
+  font-size: 10px !important;
+  min-width: 24px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.btn-nav-pill:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.turn-badge {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 4px;
+  user-select: none;
+}
+
+.turn-user-box {
+  border-radius: 4px;
+  padding: 6px 10px;
+  font-size: 11px;
+  line-height: 1.35;
+  max-height: 75px;
+  overflow-y: auto;
+}
+
+.turn-user-tag {
+  display: block;
+  font-size: 9.5px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 2px;
+}
+
+.turn-user-text {
+  word-break: break-word;
+}
+
+/* Light Mode Overrides */
+body.theme-light .btn-pinned-header {
+  background: #f1f4f8;
+  border: 1px solid #d0d7de;
+  color: #24292f;
+}
+
+body.theme-light .btn-pinned-header:hover {
+  background: #e2e8f0;
+  border-color: #0969da;
+}
+
+body.theme-light .pinned-tag {
+  color: #0969da;
+}
+
+body.theme-light .pinned-title {
+  color: #475569;
+}
+
+body.theme-light .turn-badge {
+  background: #e2e8f0;
+  color: #1e293b;
+}
+
+body.theme-light .turn-user-box {
+  background: #f8fafc;
+  border-left: 3px solid #0f172a;
+  color: #334155;
+}
+
+body.theme-light .turn-user-tag {
+  color: #64748b;
+}
+
+/* Dark Mode Overrides */
+body.theme-dark .btn-pinned-header {
+  background: #25282c;
+  border: 1px solid #3d4248;
+  color: #e6edf3;
+}
+
+body.theme-dark .btn-pinned-header:hover {
+  background: #2f343a;
+  border-color: #58a6ff;
+}
+
+body.theme-dark .pinned-tag {
+  color: #58a6ff;
+}
+
+body.theme-dark .pinned-title {
+  color: #8b949e;
+}
+
+body.theme-dark .turn-badge {
+  background: #2a2e34;
+  color: #e6edf3;
+}
+
+body.theme-dark .turn-user-box {
+  background: #1c1f24;
+  border-left: 3px solid #58a6ff;
+  color: #c9d1d9;
+}
+
+body.theme-dark .turn-user-tag {
+  color: #8b949e;
+}
+
