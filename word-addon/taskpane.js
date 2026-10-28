@@ -480,6 +480,34 @@ function buildFullPertOoxmlFromActivities(rawActivities) {
   }
   acts.forEach(a => getLevel(a.id));
 
+  // 2.1 Algorithmic CPM Engine: Recalculates and verifies ES, EF, LS, LF, h, crit
+  // This guarantees 100% mathematical perfection regardless of LLM text anomalies
+  const forwardOrder = [...acts].sort((a, b) => levels[a.id] - levels[b.id]);
+  forwardOrder.forEach(a => {
+    if (a.pred.length === 0) {
+      a.es = 0;
+    } else {
+      a.es = Math.max(...a.pred.map(p => acts.find(x => x.id === p)?.ef || 0));
+    }
+    a.ef = a.es + (a.t || 0);
+  });
+
+  const finNode = acts.find(a => a.id === "FIN");
+  const projectDuration = finNode ? finNode.ef : Math.max(...acts.map(a => a.ef || 0));
+
+  const backwardOrder = [...acts].sort((a, b) => levels[b.id] - levels[a.id]);
+  backwardOrder.forEach(a => {
+    const sList = succs[a.id] || [];
+    if (sList.length === 0) {
+      a.lf = projectDuration;
+    } else {
+      a.lf = Math.min(...sList.map(sId => acts.find(x => x.id === sId)?.ls ?? projectDuration));
+    }
+    a.ls = a.lf - (a.t || 0);
+    a.h = a.lf - a.ef;
+    a.crit = (a.h === 0);
+  });
+
   // 3. Find all paths from INICIO to FIN
   const allPaths = [];
   function dfsPaths(curr, path) {
