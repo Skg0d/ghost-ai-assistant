@@ -622,8 +622,30 @@ function buildDecisionTreeOoxml(treeData) {
   (treeData.edges || []).forEach(e => {
     const u = String(e.from).trim();
     const v = String(e.to).trim();
+    if (!nodesDict[u]) {
+      const newNode = { id: u, _id: u, type: "chance", label: u, vme: "", payoff: "" };
+      nodesDict[u] = newNode;
+      treeData.nodes.push(newNode);
+      children[u] = [];
+      parents[u] = [];
+    }
+    if (!nodesDict[v]) {
+      const newNode = { id: v, _id: v, type: "terminal", label: v, vme: "", payoff: "" };
+      nodesDict[v] = newNode;
+      treeData.nodes.push(newNode);
+      children[v] = [];
+      parents[v] = [];
+    }
     if (children[u]) children[u].push(v);
     if (parents[v]) parents[v].push(u);
+  });
+
+  // Reclassify: If any node has children, it CANNOT be terminal!
+  treeData.nodes.forEach(n => {
+    const nid = n._id;
+    if ((children[nid] || []).length > 0 && n.type === "terminal") {
+      n.type = "chance";
+    }
   });
 
   // Find root node (node with 0 parents)
@@ -660,7 +682,7 @@ function buildDecisionTreeOoxml(treeData) {
     if (vis.has(curr)) return;
     vis.add(curr);
     const chList = (children[curr] || []).filter(ch => nodesDict[ch]);
-    if (chList.length === 0 || nodesDict[curr]?.type === "terminal") {
+    if (chList.length === 0) {
       leaves.push(curr);
       return;
     }
@@ -670,14 +692,14 @@ function buildDecisionTreeOoxml(treeData) {
 
   // Ensure any unreachable leaves are included
   Object.keys(nodesDict).forEach(nid => {
-    if (!leaves.includes(nid) && ((children[nid] || []).length === 0 || nodesDict[nid]?.type === "terminal")) {
+    if (!leaves.includes(nid) && (children[nid] || []).length === 0) {
       leaves.push(nid);
     }
   });
 
   // Vertical coordinates
-  const yStart = 220000;
-  const deltaY = 380000; // ~1.05 cm per leaf row
+  const yStart = 240000;
+  const deltaY = 400000; // ~1.11 cm per leaf row
   const yPos = {};
   leaves.forEach((leafId, idx) => {
     yPos[leafId] = yStart + idx * deltaY;
@@ -687,7 +709,7 @@ function buildDecisionTreeOoxml(treeData) {
     if (vis.has(curr)) return yPos[curr] || yStart;
     vis.add(curr);
     const chList = (children[curr] || []).filter(ch => nodesDict[ch]);
-    if (chList.length === 0 || nodesDict[curr]?.type === "terminal") {
+    if (chList.length === 0) {
       return yPos[curr] || yStart;
     }
     const chYs = chList.map(ch => assignInternalY(ch, vis));
@@ -705,17 +727,17 @@ function buildDecisionTreeOoxml(treeData) {
   });
 
   // Horizontal coordinates (dynamic step to fit standard Word margins)
-  const xStart = 120000;
+  const xStart = 140000;
   const deltaX = Math.min(1400000, Math.max(1100000, Math.floor(5200000 / Math.max(1, maxDepth))));
   const xPos = {};
   Object.keys(nodesDict).forEach(nid => {
     xPos[nid] = xStart + (depth[nid] || 0) * deltaX;
   });
 
-  const decSize = 180000;    // Cuadrado decisión
-  const chanceSize = 180000; // Círculo azar
-  const termSize = 140000;   // Triángulo terminal
-  const payoffW = 900000;
+  const decSize = 260000;    // ~0.72 cm (Cuadrado decisión)
+  const chanceSize = 260000; // ~0.72 cm (Círculo azar)
+  const termSize = 160000;   // ~0.45 cm (Triángulo terminal)
+  const payoffW = 950000;
   const payoffH = 180000;
 
   // IMPORTANT: docPr uses id="8000". Shapes start at 1001 so there are ZERO duplicate IDs!
@@ -734,9 +756,20 @@ function buildDecisionTreeOoxml(treeData) {
     nodeShapeIds[nid] = nodeShapeId;
 
     const rawLabel = String(n.label || nid || "");
-    const labelTxt = escapeXml(rawLabel);
     const rawVme = String(n.vme || "");
     const vmeTxt = escapeXml(rawVme);
+
+    // Format clean identifier inside node shape (e.g. "D1", "D2", "C1", "1", "2")
+    let displayInside = nid;
+    if (displayInside.length > 4 || displayInside.includes(" ")) {
+      const shortMatch = rawLabel.match(/\b([A-Za-z]?\d+)\b/);
+      if (shortMatch) {
+        displayInside = shortMatch[1];
+      } else {
+        displayInside = ntype === "decision" ? "D" : "C";
+      }
+    }
+    const insideTxt = escapeXml(displayInside);
 
     if (ntype === "decision") {
       // Cuadrado de decisión
@@ -760,7 +793,7 @@ function buildDecisionTreeOoxml(treeData) {
                 </w:pPr>
                 <w:r>
                   <w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/><w:b/><w:sz w:val="15"/><w:color w:val="1E3A8A"/></w:rPr>
-                  <w:t>${labelTxt}</w:t>
+                  <w:t>${insideTxt}</w:t>
                 </w:r>
               </w:p>
             </w:txbxContent>
@@ -821,7 +854,7 @@ function buildDecisionTreeOoxml(treeData) {
                 </w:pPr>
                 <w:r>
                   <w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/><w:b/><w:sz w:val="15"/><w:color w:val="92400E"/></w:rPr>
-                  <w:t>${labelTxt}</w:t>
+                  <w:t>${insideTxt}</w:t>
                 </w:r>
               </w:p>
             </w:txbxContent>
@@ -944,17 +977,10 @@ function buildDecisionTreeOoxml(treeData) {
     const lineW = isOptimal ? 25400 : 12700;
     const lineClr = isOptimal ? "0284C7" : "333333";
 
-    const srcId = nodeShapeIds[u];
-    const dstId = nodeShapeIds[v];
-
-    const cxnXml = (srcId && dstId)
-      ? `<wps:cNvCnPr><a:stCxn id="${srcId}" idx="3"/><a:endCxn id="${dstId}" idx="1"/></wps:cNvCnPr>`
-      : `<wps:cNvSpPr/>`;
-
     shapesXml.push(`
       <wps:wsp>
         <wps:cNvPr id="${connId}" name="S${connId}"/>
-        ${cxnXml}
+        <wps:cNvSpPr/>
         <wps:spPr>
           <a:xfrm${flipH}${flipV}><a:off x="${minX}" y="${minY}"/><a:ext cx="${cx}" cy="${cy}"/></a:xfrm>
           <a:prstGeom prst="straightConnector1"><a:avLst/></a:prstGeom>
@@ -2045,9 +2071,18 @@ Incluye un bloque HTML oculto con la estructura JSON completa del árbol para al
 -->
 REGLAS PARA TREE_DATA:
 - "nodes": lista con TODOS los nodos. "type" debe ser exactamente "decision" (cuadrado), "chance" (círculo) o "terminal" (triángulo).
+- "id": identificadores cortos y limpios ("D1", "D2", "C1", "C2", "T1", "T2"...).
+- "label": texto corto para mostrar dentro del nodo (ej: "D1", "C1", "T1").
 - "vme": valor monetario esperado del nodo según el rollback (ej: "100 M", "5 M", "39 M").
 - "payoff": valor neto en los nodos terminales (ej: "100 M", "+27 M", "-13 M", "+147 M").
 - "edges": lista con TODAS las ramas. "optimal" es true para las ramas de la política óptima recomendada.
+- ESTRUCTURA DE COMERCIALIZACIÓN EN ÁRBOLES DE DECISIÓN:
+  Tras un estudio favorable, la decisión 'Comercializar' conduce a un NODO DE AZAR (Aceptación del mercado). De ese nodo de azar se desprenden OBLIGATORIAMENTE dos ramas terminales hermanas:
+  1. 'Buena aceptación' (p = 0.60) -> Terminal T_buena (+27 M)
+  2. 'Mala aceptación' (p = 0.40) -> Terminal T_mala (-13 M)
+  TERMINANTEMENTE PROHIBIDO conectar 'Comercializar' directamente a un terminal o conectar 'Mala aceptación' saliendo de 'Buena aceptación'.
+- PROHIBICIÓN DE SALIDAS EN NODOS TERMINALES:
+  Los nodos de tipo "terminal" NUNCA deben aparecer en el campo "from" de ninguna arista de "edges".
 - También se acepta formato jerárquico {"name": "...", "type": "decision", "children": [...]}.`;
   } else if (resolvedType === "markov") {
     typeInstruction = `
