@@ -15,7 +15,7 @@
   <!-- Marked library for markdown to clean HTML conversion -->
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 
-  <link rel="stylesheet" href="taskpane.css?v=3.9" />
+  <link rel="stylesheet" href="taskpane.css?v=4.0" />
 </head>
 <body class="theme-light">
   <!-- Invisible Right-Edge Panic Zone -->
@@ -63,12 +63,6 @@
       </button>
       <button class="btn btn-secondary" id="btn-clear" style="flex: 0.35;" title="Limpiar">
         Limpiar
-      </button>
-    </div>
-
-    <div class="btn-row" style="margin-top: 4px;">
-      <button class="btn btn-secondary" id="btn-test-drawing" style="width: 100%; font-size: 11px; padding: 5px;" title="Prueba si Word Online permite insertar un lienzo vectorial editable de 3 nodos">
-        Probar Dibujo Vectorial (3 Nodos)
       </button>
     </div>
 
@@ -127,13 +121,14 @@
         <span>📌 Se inserta exactamente donde esté titilando tu cursor en Word</span>
       </div>
 
-      <button class="btn btn-insert" id="btn-insert-word">
-        Insertar Desarrollo en Word
-      </button>
-
-      <button class="btn btn-secondary" id="btn-insert-drawing" style="display: none; padding: 7px; font-weight: bold; border: 1.5px solid #000; font-size: 11px;" title="Inserta el diagrama de red vectorial exactamente en la posición de tu cursor en Word">
-        Insertar Diagrama de Red (Dibujo Word)
-      </button>
+      <div class="btn-row" style="gap: 6px;">
+        <button class="btn btn-insert" id="btn-insert-word" style="flex: 1; padding: 6px 8px; font-size: 11px;" title="Inserta el texto y tablas del desarrollo en tu cursor">
+          Insertar Desarrollo
+        </button>
+        <button class="btn btn-secondary" id="btn-insert-drawing" style="display: none; flex: 1; padding: 6px 8px; font-size: 11px;" title="Inserta el diagrama de red vectorial en tu cursor">
+          Insertar Diagrama
+        </button>
+      </div>
     </div>
   </div>
 
@@ -158,6 +153,6 @@
     </div>
   </div>
 
-  <script src="taskpane.js?v=3.9"></script>
+  <script src="taskpane.js?v=4.0"></script>
 </body>
 </html>

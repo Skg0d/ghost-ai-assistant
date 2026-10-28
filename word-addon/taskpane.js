@@ -851,47 +851,7 @@ if (btnInsertDrawing) {
   });
 }
 
-// Button: Test 3-node Drawing
-const btnTestDrawing = document.getElementById("btn-test-drawing");
-if (btnTestDrawing) {
-  btnTestDrawing.addEventListener("click", async () => {
-    try {
-      const sampleNodes = [
-        { id: 'INICIO', act: 'INICIO', t: 0, pred: [], es: 0, ef: 0, ls: 0, lf: 0, h: 0, crit: true },
-        { id: 'A', act: 'A', t: 3, pred: ['INICIO'], es: 0, ef: 3, ls: 0, lf: 3, h: 0, crit: true },
-        { id: 'C', act: 'C', t: 1, pred: ['A'], es: 3, ef: 4, ls: 3, lf: 4, h: 0, crit: true }
-      ];
-      const opcXml = buildFullPertOoxmlFromActivities(sampleNodes);
 
-      if (typeof Word !== "undefined" && Word.run) {
-        await Word.run(async (context) => {
-          const selection = context.document.getSelection();
-          const range = selection.insertOoxml(opcXml, Word.InsertLocation.replace);
-          range.select("End");
-          await context.sync();
-        });
-        showToast("✓ Dibujo de prueba insertado en el cursor");
-        return;
-      }
-
-      if (typeof Office !== "undefined" && Office.context && Office.context.document) {
-        Office.context.document.setSelectedDataAsync(opcXml, { coercionType: Office.CoercionType.Ooxml }, (result) => {
-          if (result.status === Office.AsyncResultStatus.Succeeded) {
-            showToast("✓ Dibujo de prueba insertado en el cursor");
-          } else {
-            alert("Error al insertar OOXML: " + result.error.message);
-          }
-        });
-        return;
-      }
-
-      alert("Abre el complemento dentro de Word Online para probar la inserción.");
-    } catch (err) {
-      console.error("Test drawing insertion failed:", err);
-      alert("Error de Word al insertar dibujo OOXML: " + (err.message || err));
-    }
-  });
-}
 
 // Display a specific conversation turn and update pinned headers
 function showTurn(idx) {
