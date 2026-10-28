@@ -1945,12 +1945,27 @@ ESTRUCTURA OBLIGATORIA DEL DESARROLLO (Paso a Paso):
    - Detallar la pareja de asignación formal: Recurso_i -> Tarea_j.
    - OBLIGATORIO: Tomar los costos/beneficios de la MATRIZ ORIGINAL (NUNCA sumar los ceros de la matriz reducida).
    - Sumatoria formal y costo total unitario óptimo Z*.
-8. TABLA DE COSTOS ASOCIADOS A LA DISTRIBUCIÓN (SI EL ENUNCIADO INCLUYE LITROS / VOLÚMENES):
-   - Tabla Markdown formal de distribución valorizada: Depósito, Producto Asignado, Capacidad (L), Pedido (L), Litros Asignados, Costo Unitario ($/L), Costo Total ($) y Balance (sobrante o faltante).
-   - Calcular el Costo Total de Distribución Directa en pesos.
-   - Mostrar además la interpretación de distribución balanceada continua (Transporte con trasvase de excedentes para abastecer los 395 L totales) según la Sección 10.1 del manual de cátedra.
+8. INCISOS DE DISTRIBUCIÓN REAL DE CANTIDADES (SI EL ENUNCIADO INCLUYE LITROS / VOLÚMENES / OFERTAS Y DEMANDAS):
+   - ACLARACIÓN DE CÁTEDRA (SECCIÓN 10.1): Explicar claramente que el costo unitario del Húngaro (Z* = 8) es solo para asignación biunívoca 1 a 1 y no satisface la demanda total de litros (ej: D2 solo tiene 120 L y A necesita 125 L, D3 tiene 80 L y C necesita 130 L).
+   - MODELO FORMAL DE TRANSPORTE: Para resolver la distribución física solicitada ("Tabla de costos asociados a la distribución" y "Gráfico de distribución"), formular el modelo de Transporte balanceado (395 L = 395 L) con x_ij = litros enviados del depósito i al producto j.
+   - SOLUCIÓN INICIAL POR MÉTODO DE COSTOS MÍNIMOS (Paso a Paso):
+     * Seleccionar en cada iteración la celda activa de menor costo unitario y asignar min(oferta restante, demanda restante).
+     * Mostrar explícitamente las 7 asignaciones básicas sucesivas (m + n - 1 = 4 + 4 - 1 = 7 celdas básicas):
+       1. D2 -> A: 120 L (costo 1)
+       2. D3 -> C: 80 L (costo 1)
+       3. D1 -> A: 5 L (costo 2)
+       4. D1 -> B: 50 L (costo 3)
+       5. D4 -> D: 90 L (costo 3)
+       6. D1 -> C: 45 L (costo 4)
+       7. D4 -> C: 5 L (costo 6)
+   - MATRIZ FINAL DE DISTRIBUCIÓN: Tabla Markdown formal con las 7 asignaciones, ofertas utilizadas (100, 120, 80, 95) y demandas cubiertas (125, 50, 130, 90).
+   - TABLA DE COSTOS ASOCIADOS A LA DISTRIBUCIÓN: Mostrar la tabla con el producto enviado por depósito, cálculo de costo parcial por celda y costo total por depósito (D1 = 340, D2 = 120, D3 = 80, D4 = 300 ➔ Costo Total Mínimo = 840 unidades de costo).
+   - PRUEBA DE OPTIMALIDAD (POTENCIALES MODI):
+     * Fijar u1 = 0 y resolver u_i + v_j = c_ij en las 7 celdas básicas obteniendo los vectores u = (0, -1, -3, 2) y v = (2, 3, 4, 1).
+     * Calcular los índices marginales de mejora I_ij = c_ij - u_i - v_j para todas las celdas no básicas.
+     * Demostrar que todos los I_ij >= 0, confirmando que la distribución con Costo Total = 840 es matemáticamente ÓPTIMA.
 9. GRÁFICO DE DISTRIBUCIÓN:
-   - Presentar el grafo bipartito visual de asignación y distribución con Orígenes a la izquierda, Destinos a la derecha, flechas dirigidas, cantidades y costos.`;
+   - Presentar el grafo bipartito visual con las 7 rutas de envío reales, indicando cantidades en litros y costos unitarios de cada conexión.`;
   } else if (resolvedType === "decision") {
     typeInstruction = `
 TIPO DE PROBLEMA: TEORÍA DE LA DECISIÓN / MATRICES DE PAGOS (REGLAS DE CÁTEDRA).
