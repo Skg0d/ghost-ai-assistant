@@ -1053,6 +1053,13 @@ ESTRUCTURA OBLIGATORIA DEL DESARROLLO (Paso a Paso):
   } else if (type === "pert" || consigna.toLowerCase().includes("red") || consigna.toLowerCase().includes("camino crítico") || consigna.toLowerCase().includes("holgura")) {
     typeInstruction = `
 TIPO DE PROBLEMA: DIAGRAMA DE REDES / PERT - CPM.
+
+REGLAS DE IDENTIFICACIÓN Y EXTRACCIÓN UNIVERSAL (Cualquier formato de consigna):
+- La consigna puede venir redactada como tabla formal, lista de viñetas, párrafo narrativo de texto continuo o copiada de un PDF/Word.
+- Identifica cada tarea y asígnale un identificador corto (A, B, C... o T1, T2...) si el enunciado solo describe nombres largos (ej: "Estudio de mercado" -> "A").
+- Si el ejercicio es PERT probabilístico con 3 estimaciones de tiempo (optimista 'a', más probable 'm', pesimista 'b'), calcula el tiempo esperado: te = (a + 4m + b) / 6 y úsalo como la duración 't'.
+- Reconoce las predecesoras bajo cualquier denominación ("Predecesora", "Inmediata", "Depende de", "Requisitos", "Secuencia previa", guiones "-" o "Ninguna").
+
 DEBES RESOLVER EL PROBLEMA SIGUIENDO ESTRICTAMENTE ESTE ORDEN DE RAZONAMIENTO MATEMÁTICO:
 
 1. PASO HACIA ADELANTE (FORWARD PASS) - TIEMPOS TEMPRANOS:
