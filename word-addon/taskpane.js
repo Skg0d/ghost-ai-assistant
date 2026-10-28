@@ -272,7 +272,7 @@ function prepareWordHtml(html) {
 
   // 1. Remove code blocks (<pre><code>) if any, converting them into clean normal text
   clean = clean.replace(/<pre><code[^>]*>([\s\S]*?)<\/code><\/pre>/gi, (match, code) => {
-    return `<div style="font-family: Calibri, sans-serif; padding: 8px 0; margin: 8px 0; line-height: 1.4;">${code}</div>`;
+    return `<div style="font-family: 'Times New Roman', Times, serif; font-size: 12pt; padding: 6px 0; margin: 6px 0; line-height: 1.35;">${code}</div>`;
   });
 
   // 2. Remove LaTeX commands, raw math codes and dollar signs
@@ -291,13 +291,13 @@ function prepareWordHtml(html) {
     const isCritical = text.includes("*") || text.toLowerCase().includes("crític");
     const bg = isCritical ? "#e2e8f0" : "#ffffff";
     const border = isCritical ? "2px solid #000000" : "1.5px solid #000000";
-    return `<span style="display: inline-block; border: ${border}; background-color: ${bg}; padding: 3px 8px; margin: 3px 4px; font-weight: bold; font-family: Calibri, sans-serif; font-size: 10pt; text-align: center; border-radius: 2px;">${text}</span>`;
+    return `<span style="display: inline-block; border: ${border}; background-color: ${bg}; padding: 3px 8px; margin: 3px 4px; font-weight: bold; font-family: 'Times New Roman', Times, serif; font-size: 11pt; text-align: center; border-radius: 2px;">${text}</span>`;
   });
 
-  // 4. Ensure real native Word tables with clean black borders and cell shading
-  clean = clean.replace(/<table[^>]*>/gi, '<table border="1" cellpadding="6" cellspacing="0" style="border-collapse: collapse; width: 100%; border: 1.5px solid #000000; margin: 12px 0; font-family: Calibri, sans-serif; font-size: 10pt;">');
-  clean = clean.replace(/<th[^>]*>/gi, '<th style="border: 1px solid #000000; background-color: #f2f2f2; font-weight: bold; padding: 6px 8px; text-align: center; color: #000000;">');
-  clean = clean.replace(/<td[^>]*>/gi, '<td style="border: 1px solid #000000; padding: 5px 8px; text-align: center; color: #000000;">');
+  // 4. Ensure real native Word tables with clean black borders and cell shading (Times New Roman 11pt)
+  clean = clean.replace(/<table[^>]*>/gi, '<table border="1" cellpadding="6" cellspacing="0" style="border-collapse: collapse; width: 100%; border: 1.5px solid #000000; margin: 12px 0; font-family: \'Times New Roman\', Times, serif; font-size: 11pt;">');
+  clean = clean.replace(/<th[^>]*>/gi, '<th style="border: 1px solid #000000; background-color: #f2f2f2; font-weight: bold; padding: 6px 8px; text-align: center; color: #000000; font-family: \'Times New Roman\', Times, serif; font-size: 11pt;">');
+  clean = clean.replace(/<td[^>]*>/gi, '<td style="border: 1px solid #000000; padding: 5px 8px; text-align: center; color: #000000; font-family: \'Times New Roman\', Times, serif; font-size: 11pt;">');
 
   return clean;
 }
@@ -309,10 +309,10 @@ btnInsertWord.addEventListener("click", async () => {
     return;
   }
 
-  // Academic styling for native Word document insertion
+  // Academic styling for native Word document insertion (Times New Roman 12pt según manual de cátedra)
   const styledHtml = `
-    <div style="font-family: Calibri, 'Segoe UI', sans-serif; font-size: 11pt; color: #000000; line-height: 1.35;">
-      <h3 style="color: #000000; border-bottom: 2px solid #000000; padding-bottom: 4px; margin-top: 14px;">
+    <div style="font-family: 'Times New Roman', Times, serif; font-size: 12pt; color: #000000; line-height: 1.35;">
+      <h3 style="font-family: 'Times New Roman', Times, serif; font-size: 14pt; color: #000000; border-bottom: 2px solid #000000; padding-bottom: 4px; margin-top: 14px;">
         Desarrollo y Resolución Técnica
       </h3>
       ${currentRenderedHtml}
@@ -1027,30 +1027,70 @@ REGLAS DE FORMATO:
   }
 });
 
-// Specialized prompt builder for Investigación Operativa
-function buildOperationalResearchPrompt(consigna, type) {
+// Specialized prompt builder for Investigación Operativa (Reglas de Cátedra de Fede)
+function buildOperationalResearchPrompt(consigna, selectedType) {
+  const text = consigna.toLowerCase();
+  let resolvedType = selectedType;
+
+  // Auto-detection logic if type is 'auto' or unselected
+  if (!resolvedType || resolvedType === "auto") {
+    if (text.includes("húngaro") || text.includes("hungaro") || (text.includes("asignación") && !text.includes("asientos")) || (text.includes("asignacion") && !text.includes("asientos"))) {
+      resolvedType = "hungaro";
+    } else if (text.includes("transporte") || text.includes("esquina noroeste") || text.includes("costos mínimos") || text.includes("costos minimos") || text.includes("vogel") || text.includes("vam") || text.includes("modi") || text.includes("orígenes") || text.includes("destinos")) {
+      resolvedType = "transporte";
+    } else if (text.includes("árbol") || text.includes("arbol") || text.includes("rollback") || text.includes("nodo de decisión") || text.includes("nodo de azar")) {
+      resolvedType = "arbol";
+    } else if (text.includes("wald") || text.includes("hurwicz") || text.includes("savage") || text.includes("laplace") || text.includes("maximax") || text.includes("maximin") || text.includes("arrepentimiento") || text.includes("matriz de pagos") || text.includes("matriz de decisión") || text.includes("veip")) {
+      resolvedType = "decision";
+    } else if (text.includes("markov") || text.includes("transición") || text.includes("transicion") || text.includes("estado estacionario") || text.includes("cadena de markov")) {
+      resolvedType = "markov";
+    } else if (text.includes("red") || text.includes("pert") || text.includes("cpm") || text.includes("camino crítico") || text.includes("camino critico") || text.includes("holgura") || text.includes("predecesora")) {
+      resolvedType = "pert";
+    } else if (text.includes("simplex") || text.includes("programación lineal") || text.includes("programacion lineal") || text.includes("maximizar") || text.includes("minimizar") || text.includes("restricciones")) {
+      resolvedType = "simplex";
+    } else {
+      resolvedType = "teoria";
+    }
+  }
+
   let typeInstruction = "";
 
-  if (type === "simplex" || consigna.toLowerCase().includes("simplex") || consigna.toLowerCase().includes("programación lineal")) {
+  if (resolvedType === "simplex") {
     typeInstruction = `
-TIPO DE PROBLEMA: PROGRAMACIÓN LINEAL / MÉTODO SIMPLEX.
-ESTRUCTURA OBLIGATORIA DEL DESARROLLO (Paso a Paso):
-1. PLANTEO FORMAL:
-   - Definición explícita de variables de decisión (ej: X1 = ..., X2 = ...).
-   - Función Objetivo formal (Zmax o Zmin con unidades monetarias o métricas).
-   - Sistema de Restricciones canónicas con unidades.
-   - Condición de no negatividad (X1, X2 >= 0).
-2. FORMA ESTÁNDAR:
-   - Incorporación de variables de holgura (S1, S2, etc.) o artificiales.
-3. TABLAS SIMPLEX PASO A PASO (Formato de tabla Markdown completo):
-   - Tabla Simplex Inicial (Tabla 0): con fila Cj, variables básicas, coeficientes, fila Zj y fila (Cj - Zj).
-   - Identificación justificada de la COLUMNA PIVOTE (variable que entra) y FILA PIVOTE (cálculo de cocientes mínimos / variable que sale). Indicar claramente el ELEMENTO PIVOTE.
-   - Tabla Simplex Iteración 1, Iteración 2 (si aplica) con las operaciones de Gauss-Jordan detalladas.
-   - Tabla Simplex Final (condición de parada alcanzada).
-4. SOLUCIÓN ÓPTIMA E INTERPRETACIÓN:
-   - Valores óptimos finales de cada variable y valor de Z*.
-   - Interpretación textual en el contexto del problema (ej: cantidad exacta a producir o asientos a ofrecer).`;
-  } else if (type === "pert" || consigna.toLowerCase().includes("red") || consigna.toLowerCase().includes("camino crítico") || consigna.toLowerCase().includes("holgura")) {
+TIPO DE PROBLEMA: PROGRAMACIÓN LINEAL / MÉTODO SIMPLEX (REGLAS ESTRICTAS DE CÁTEDRA).
+
+DIRECTIVAS METODOLÓGICAS OBLIGATORIAS:
+1. RESTRICCIÓN EXPRESA DE CÁTEDRA (PROHIBICIÓN ABSOLUTA):
+   - TERMINANTEMENTE PROHIBIDO usar o mencionar Variables Artificiales, Método Gran M (M) o Método de las Dos Fases.
+   - En restricciones con '>=', NUNCA inventes variables artificiales ni penalizaciones con M.
+2. CONVENCIÓN CANÓNICA DE LA CÁTEDRA:
+   - Función Objetivo: Expresar en forma canónica de fila: Z - c^T X = 0 (o maximizar W = -D si se busca minimizar).
+   - Restricciones '<=': Sumar una variable de holgura (+S_i >= 0).
+   - Restricciones '>=': MULTIPLICAR TODA LA DESIGUALDAD POR -1, invertir el sentido a '<=' y agregar una variable de holgura (+S_i).
+     Ejemplo formal de cátedra: 2X1 + 3X2 >= 12 pasa canónicamente a: -2X1 - 3X2 + S1 = -12.
+     (ESTRICTAMENTE PROHIBIDO usar atajos como Y = X - 10 o variables desplazadas inventadas).
+3. SELECCIÓN RIGUROSA DEL ALGORITMO (PRIMAL O DUAL):
+   - Si la solución de alguna fila de restricción es NEGATIVA (Lado Derecho < 0): APLICAR SIMPLEX DUAL.
+     * Fila Saliente (Fila Pivote): La fila con la Solución más negativa.
+     * Columna Entrante (Columna Pivote): Entre las columnas con coeficientes estrictamente negativos en esa fila saliente (a_rj < 0), calcular el cociente q_j = C_j / (-a_rj) donde C_j es el coeficiente en la fila Z. Elegir la columna con el MENOR cociente no negativo.
+   - Si todas las soluciones son no negativas (>= 0) y hay coeficientes negativos en la fila Z: APLICAR SIMPLEX PRIMAL.
+     * Columna Entrante: Variable con el coeficiente más negativo en la fila Z.
+     * Fila Saliente: Fila con el menor cociente no negativo (Solución / a_ik con a_ik > 0).
+4. OPERACIONES VECTORIALES DE GAUSS-JORDAN OBLIGATORIAS:
+   Para cada fila nueva de la siguiente tabla, mostrar explícitamente el desarrollo vectorial completo:
+   F'_r = F_r / p
+   F'_i = F_i - a_ik * F'_r
+   Ejemplo de formato:
+   F'_2 = (20, 50, 0, 1, 0 | 3000) - 50(0, 1, 0, 0, -1 | 10) = (20, 0, 0, 1, 50 | 2500)
+5. TABLAS SIMPLEX PASO A PASO (Formato de tabla Markdown con bordes):
+   - Columnas: | Base | X1 | X2 ... | S1 | S2 ... | Solución | Cociente |
+   - Fila Z integrada canónicamente en la tabla.
+   - REGLA DE COCIENTES: La columna "Cociente" SOLO se calcula en iteraciones donde se va a pivotear. EN LA TABLA FINAL ÓPTIMA ESTÁ PROHIBIDO CALCULAR COCIENTES (dejar guiones o vacía).
+6. SOLUCIÓN ÓPTIMA E INTERPRETACIÓN ECONÓMICA:
+   - Detalle de valores óptimos (variables básicas en la columna Solución, no básicas en 0).
+   - Valor de Z* con unidades monetarias.
+   - Verificación en las restricciones originales y detalle de holguras con unidades físicas.`;
+  } else if (resolvedType === "pert") {
     typeInstruction = `
 TIPO DE PROBLEMA: DIAGRAMA DE REDES / PERT - CPM.
 
@@ -1069,11 +1109,11 @@ Calcula para cada actividad su Inicio Temprano (ES) y Fin Temprano (EF = ES + t)
 Muestra explícitamente cada ecuación y resultado aritmético paso a paso (ej: "ES(C) = EF(A) = 6 ➔ EF(C) = 6 + 2 = 8 meses").
 
 2. TIEMPO MÍNIMO DEL PROYECTO (T*):
-Identifica todas las actividades terminales (aquellas que NO tienen sucesoras directas, es decir: F, M, N, P).
-Calcula formalmente el tiempo total del proyecto: T* = max(EF de todas las terminales). Muestra la comparación: max(EF(F), EF(M), EF(N), EF(P)).
+Identifica todas las actividades terminales (aquellas que NO tienen sucesoras directas).
+Calcula formalmente el tiempo total del proyecto: T* = max(EF de todas las terminales). Muestra la comparación.
 
 3. PASO HACIA ATRÁS (BACKWARD PASS) - TIEMPOS TARDÍOS:
-(REGLA UNIVERSAL ESTRICTA: Para TODAS las actividades terminales F, M, N, P, su Fin Tardío es IGUAL a T*: LF = T*. Ninguna terminal puede tener LF distinto a T*).
+(REGLA UNIVERSAL ESTRICTA: Para TODAS las actividades terminales, su Fin Tardío es IGUAL a T*: LF = T*. Ninguna terminal puede tener LF distinto a T*).
 Calcula para cada actividad su Fin Tardío (LF) e Inicio Tardío (LS = LF - t):
 - Para actividades con sucesoras: LF = min(LS de todas sus sucesoras directas).
 Muestra explícitamente cada cálculo hacia atrás.
@@ -1102,39 +1142,138 @@ Al final de todo el texto, incluye un bloque HTML oculto con el resumen JSON de 
   ...
 ]
 -->`;
-  } else if (type === "arbol" || consigna.toLowerCase().includes("árbol") || consigna.toLowerCase().includes("probabilidades") || consigna.toLowerCase().includes("estudio de mercado")) {
+  } else if (resolvedType === "transporte") {
     typeInstruction = `
-TIPO DE PROBLEMA: TEORÍA DE LA DECISIÓN / ÁRBOLES DE DECISIÓN.
+TIPO DE PROBLEMA: MODELO DE TRANSPORTE Y DISTRIBUCIÓN (REGLAS DE CÁTEDRA).
+
 ESTRUCTURA OBLIGATORIA DEL DESARROLLO (Paso a Paso):
-1. IDENTIFICACIÓN DE ALTERNATIVAS, ESTADOS DE LA NATURALEZA Y PROBABILIDADES:
-   - Listado de alternativas de decisión (Nodos cuadrados).
-   - Listado de eventos aleatorios con sus probabilidades asociadas (Nodos circulares).
-   - Beneficios netos o costos de cada rama terminal.
-2. ESQUEMA JERÁRQUICO DEL ÁRBOL:
-   - Detalle rama por rama de la estructura del árbol de decisión.
-3. CÁLCULO DEL VALOR ESPERADO (VE / EMV) HACIA ATRÁS:
-   - Cálculo matemático paso a paso de cada nodo de probabilidad de derecha a izquierda: VE = sum(Probabilidad * Beneficio).
-   - Comparación en cada nodo de decisión y poda de ramas no óptimas.
-4. DECISIÓN FINAL RECOMENDADA:
-   - Detalle de la mejor estrategia a seguir y el Valor Esperado óptimo resultante.`;
-  } else if (type === "transporte" || consigna.toLowerCase().includes("transporte") || consigna.toLowerCase().includes("costos minimos") || consigna.toLowerCase().includes("vogel") || consigna.toLowerCase().includes("ofertas")) {
-    typeInstruction = `
-TIPO DE PROBLEMA: MODELO DE TRANSPORTE Y ASIGNACIÓN.
-ESTRUCTURA OBLIGATORIA DEL DESARROLLO (Paso a Paso):
-1. VERIFICACIÓN DE EQUILIBRIO:
-   - Suma total de Oferta vs Suma total de Demanda (balanceo).
+1. ANÁLISIS DE BALANCEO:
+   - Suma total de Ofertas vs Suma total de Demandas.
+   - Si no son iguales, balancear obligatoriamente agregando un Origen Ficticio o Destino Ficticio por la diferencia con costo cero (o penalización si el enunciado lo indica).
+   - Explicar qué representa la fila/columna ficticia (capacidad ociosa o demanda insatisfecha).
 2. MATRIZ DE COSTOS UNITARIOS INICIAL:
-   - Tabla Markdown con orígenes, destinos, costos unitarios, ofertas y demandas.
-3. APLICACIÓN DEL MÉTODO (MÉTODO DE COSTOS MÍNIMOS O EL SOLICITADO):
-   - Asignación iterativa celda por celda: identificar la celda con menor costo, asignar la máxima cantidad posible min(Oferta, Demanda), tachar fila/columna satisfecha y ajustar remanentes.
-4. MATRIZ DE DISTRIBUCIÓN FINAL:
-   - Tabla completa con las cantidades asignadas en cada ruta.
-5. CÁLCULO DEL COSTO TOTAL (Z):
-   - Sumatoria formal Z = sum(Costo_ij * Cantidad_ij) con el resultado numérico final.`;
+   - Tabla Markdown formal con orígenes en filas, destinos en columnas, costos unitarios, ofertas y demandas.
+3. SOLUCIÓN BÁSICA INICIAL (MÉTODO SOLICITADO: COSTOS MÍNIMOS, NOROESTE O VOGEL / VAM):
+   - Desarrollar la asignación paso a paso: Celda seleccionada, cantidad asignada min(Oferta remanente, Demanda remanente), sector cancelado (fila o columna satisfecha) y saldos restantes.
+   - Si se usa Vogel (VAM): mostrar el cálculo explícito de penalizaciones (diferencia entre los dos costos menores) para cada fila y columna activa en cada paso.
+4. CONDICIÓN DE BASE Y DEGENERACIÓN:
+   - Verificar la cantidad de celdas básicas: m + n - 1 (m orígenes, n destinos).
+   - Si hay menos de m + n - 1 celdas asignadas, incorporar ceros básicos denotados como 0* en celdas independientes que no formen circuito.
+5. COSTO TOTAL DE LA SOLUCIÓN INICIAL:
+   - C0 = sum(Costo_ij * Cantidad_ij) con el resultado numérico explícito.
+6. OPTIMIZACIÓN MODI (MÉTODO DE DISTRIBUCIÓN MODIFICADA) Y PRUEBA DE OPTIMALIDAD:
+   - Fijar u_1 = 0.
+   - Resolver sistema u_i + v_j = c_ij para todas las celdas básicas (incluidos los 0*).
+   - Calcular índices de mejora para las celdas no básicas: I_ij = c_ij - u_i - v_j.
+   - Mostrar la tabla de potenciales (u_i, v_j) e índices I_ij.
+   - Si todos los I_ij >= 0: declarar formalmente la solución óptima.
+   - Si existen I_ij < 0: seleccionar el más negativo, construir el circuito cerrado de saltos ortogonales (+ / -), determinar theta = min(posiciones -), mostrar la tabla explicativa "Antes / Cambio / Después" y calcular el nuevo costo.
+7. MATRIZ DE DISTRIBUCIÓN FINAL Y CONCLUSIÓN:
+   - Tabla Markdown completa con las asignaciones finales y costo óptimo Z*.`;
+  } else if (resolvedType === "hungaro") {
+    typeInstruction = `
+TIPO DE PROBLEMA: ASIGNACIÓN / MÉTODO HÚNGARO (REGLAS DE CÁTEDRA).
+
+ESTRUCTURA OBLIGATORIA DEL DESARROLLO (Paso a Paso):
+1. PREPARACIÓN Y BALANCEO DE LA MATRIZ:
+   - Conservar intacta la Matriz Original de costos/beneficios para calcular el resultado final.
+   - Verificar si la matriz es cuadrada (n x n). Si no lo es, balancear agregando filas o columnas ficticias con costo cero.
+   - Si el problema es de MAXIMIZACIÓN: convertir a minimización mediante c'_ij = M - b_ij (donde M = max(b_ij)).
+2. PASO 1 - REDUCCIÓN POR FILAS:
+   - Identificar el valor mínimo de cada fila y restarlo a todos los elementos de la fila.
+   - Mostrar la matriz resultante con los ceros generados.
+3. PASO 2 - REDUCCIÓN POR COLUMNAS:
+   - Sobre la matriz reducida por filas, identificar el valor mínimo de cada columna y restarlo a su columna.
+   - Mostrar la nueva matriz reducida.
+4. PASO 3 - COBERTURA MÍNIMA DE CEROS:
+   - Trazar la cantidad mínima de líneas rectas (horizontales y verticales) necesarias para cubrir TODOS los ceros: L.
+   - Si L = n: Se ha alcanzado la base para la asignación óptima. Pasar a la selección.
+   - Si L < n: Proseguir al ajuste de matriz con h.
+5. PASO 4 - AJUSTE CON MENOR ELEMENTO NO CUBIERTO (h):
+   - Determinar h = menor valor entre las celdas NO cubiertas por ninguna línea.
+   - Restar h a todas las celdas descubiertas.
+   - Sumar h a las intersecciones de dos líneas (cruce de línea horizontal y vertical).
+   - Dejar sin cambios las celdas cubiertas por una sola línea.
+   - Mostrar la nueva matriz ajustada y verificar nuevamente la cobertura.
+6. PASO 5 - ASIGNACIÓN DE CEROS INDEPENDIENTES:
+   - Seleccionar sistemáticamente ceros independientes: iniciar por filas o columnas con un ÚNICO cero no asignado, seleccionarlo y tachar los ceros restantes de su fila y columna.
+   - Completar exactamente una asignación por fila y por columna.
+7. RESULTADO FINAL Y COSTO TOTAL (EVALUADO EN LA MATRIZ ORIGINAL):
+   - Detallar la pareja de asignación formal: Recurso_i -> Tarea_j.
+   - OBLIGATORIO: Tomar los costos/beneficios de la MATRIZ ORIGINAL (NUNCA sumar los ceros de la matriz reducida).
+   - Sumatoria formal y costo total óptimo Z*.`;
+  } else if (resolvedType === "decision") {
+    typeInstruction = `
+TIPO DE PROBLEMA: TEORÍA DE LA DECISIÓN / MATRICES DE PAGOS (REGLAS DE CÁTEDRA).
+
+ESTRUCTURA OBLIGATORIA DEL DESARROLLO (Paso a Paso):
+1. IDENTIFICACIÓN Y MATRIZ DE DECISIÓN:
+   - Aclarar explícitamente si los valores representan BENEFICIOS (a maximizar) o COSTOS (a minimizar).
+   - Matriz de pagos formal en Markdown: Filas = Alternativas de decisión; Columnas = Estados de la Naturaleza (con sus probabilidades asociadas si se conocen).
+2. TOMA DE DECISIONES BAJO INCERTIDUMBRE (Si no hay probabilidades dadas):
+   Desarrollar y comparar los criterios solicitados:
+   - Criterio de Wald (Maximin / Pesimista): Listar el peor resultado de cada alternativa (mínimo beneficio o máximo costo) y elegir el mejor de ellos.
+   - Criterio Maximax (Optimista): Listar el mejor resultado de cada alternativa y elegir el máximo.
+   - Criterio de Laplace (Razón Insuficiente): Asignar probabilidades iguales 1/n a cada estado y calcular el promedio simple por alternativa.
+   - Criterio de Hurwicz: Con coeficiente de optimismo alpha dado (o default 0.5): H = alpha * Mejor + (1 - alpha) * Peor.
+   - Criterio de Savage (Minimax de Arrepentimiento / Pesar):
+     * OBLIGATORIO: Construir y mostrar la MATRIZ DE ARREPENTIMIENTO completa r_ij = (Mejor valor del estado j) - a_ij (en beneficios).
+     * Identificar el máximo arrepentimiento por fila.
+     * Seleccionar la alternativa con el MENOR de los máximos arrepentimientos.
+3. TOMA DE DECISIONES BAJO RIESGO (Si hay probabilidades conocidas):
+   - Cálculo del Valor Monetario Esperado (VME / EMV) para cada alternativa: VME_i = sum(P_j * Pago_ij).
+   - Determinación de la alternativa óptima que maximiza el beneficio esperado (o minimiza el costo esperado).
+   - Valor Esperado con Información Perfecta (VEIP):
+     * VE con IP = sum(P_j * Mejor resultado en estado j).
+     * VEIP = |VE con IP - VME óptimo|.
+4. RESUMEN Y RECOMENDACIÓN FINAL:
+   - Tabla comparativa de los criterios y decisión recomendada con unidades monetarias.`;
+  } else if (resolvedType === "arbol") {
+    typeInstruction = `
+TIPO DE PROBLEMA: ÁRBOLES DE DECISIÓN (REGLAS DE CÁTEDRA).
+
+ORDEN DE PRESENTACIÓN ESTRICTO (REGLA DE ORO DE CÁTEDRA):
+PRIMERO PRESENTAR EL ESQUEMA COMPLETO DEL ÁRBOL. DESPUÉS DESARROLLAR LOS CÁLCULOS DE VME.
+
+ESTRUCTURA OBLIGATORIA DEL DESARROLLO:
+1. IDENTIFICACIÓN DE COMPONENTES:
+   - Nodos de decisión (cuadrados): alternativas controlables.
+   - Nodos de azar (círculos): eventos probabilísticos (las probabilidades de las ramas que salen de cada círculo deben sumar 1).
+   - Pagos netos terminales: Ingresos acumulados del camino menos los costos que ocurren en ese camino.
+2. ESQUEMA JERÁRQUICO COMPLETO DEL ÁRBOL DE DECISIÓN:
+   - Representar la estructura cronológica de izquierda a derecha con sangrías y ramas legibles en formato texto/cuadro Word.
+   - Mostrar cada rama con su nombre, costo asociado, probabilidad condicional y pago terminal neto.
+3. RESOLUCIÓN HACIA ATRÁS (ROLLBACK DE DERECHA A IZQUIERDA):
+   - Comenzar por los nodos más cercanos a los pagos terminales.
+   - Nodos de azar (círculos): Calcular el promedio ponderado VME = sum(Probabilidad * Valor siguiente).
+   - Nodos de decisión (cuadrados): Comparar las alternativas y seleccionar la de mayor VME (para beneficios) podando las ramas descartadas.
+   - Mostrar las sustituciones numéricas paso a paso avanzando hacia la raíz del árbol.
+4. POLÍTICA DE DECISIÓN ÓPTIMA Y CONCLUSIÓN:
+   - Indicar explícitamente la estrategia secuencial recomendada (qué hacer inicialmente y qué decisión tomar ante cada resultado posterior observado).
+   - Valor Monetario Esperado óptimo final con unidades.`;
+  } else if (resolvedType === "markov") {
+    typeInstruction = `
+TIPO DE PROBLEMA: CADENAS DE MARKOV Y PROCESOS DE TRANSICIÓN (REGLAS DE CÁTEDRA).
+
+ESTRUCTURA OBLIGATORIA DEL DESARROLLO (Paso a Paso):
+1. DEFINICIÓN DE ESTADOS Y PERÍODO:
+   - Identificación de los estados del sistema (E1, E2, ...).
+   - Período de tiempo de cada paso de transición.
+2. MATRIZ DE PROBABILIDADES DE TRANSICIÓN (P):
+   - Tabla Markdown de la matriz estocástica P (filas suman exactamente 1).
+   - Definición del vector de probabilidades inicial v(0).
+3. EVOLUCIÓN TEMPORAL PASO A PASO:
+   - Cálculo del período 1: v(1) = v(0) * P (mostrar el producto vector-matriz paso a paso).
+   - Cálculo de períodos sucesivos si se solicitan: v(t) = v(t-1) * P.
+   - Si se piden cantidades esperadas: multiplicar las probabilidades por el tamaño total de la población.
+4. ESTADO ESTACIONARIO / DISTRIBUCIÓN DE LARGO PLAZO:
+   - Planteo formal del sistema de ecuaciones: pi = pi * P junto con la restricción normalizadora sum(pi_i) = 1.
+   - Resolución algebraica paso a paso del sistema lineal.
+   - Vector de probabilidades estacionarias resultante y su interpretación física/comercial en porcentaje.`;
   } else {
     typeInstruction = `
-TIPO DE PROBLEMA: EXAMEN DE INGENIERÍA / SISTEMAS.
-Desarrolla la respuesta con el máximo rigor académico, pasos matemáticos detallados, justificación técnica formal y tablas completas si corresponde.`;
+TIPO DE PROBLEMA: EXAMEN DE INGENIERÍA / INVESTIGACIÓN OPERATIVA.
+Desarrolla la respuesta con el máximo rigor académico, pasos matemáticos detallados, justificación técnica formal y tablas completas según las normas de cátedra.`;
   }
 
   return `OBJETIVO: Eres un profesor titular y experto en INVESTIGACIÓN OPERATIVA de Ingeniería en Sistemas.

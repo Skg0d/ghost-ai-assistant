@@ -15,7 +15,7 @@
   <!-- Marked library for markdown to clean HTML conversion -->
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 
-  <link rel="stylesheet" href="taskpane.css?v=4.1" />
+  <link rel="stylesheet" href="taskpane.css?v=4.2" />
 </head>
 <body class="theme-light">
   <!-- Invisible Right-Edge Panic Zone -->
@@ -39,10 +39,13 @@
       <div class="section-label">Tipo de Ejercicio</div>
       <select id="exercise-type" class="mode-select">
         <option value="auto">Auto-Detectar Ejercicio</option>
-        <option value="simplex">Programación Lineal (Simplex)</option>
+        <option value="simplex">Programación Lineal (Simplex Primal / Dual)</option>
         <option value="pert">Diagrama de Redes (PERT / CPM)</option>
-        <option value="arbol">Árboles de Decisión (VE)</option>
-        <option value="transporte">Transporte (Costos Mínimos)</option>
+        <option value="transporte">Transporte (Noroeste / Costos Mín / Vogel / MODI)</option>
+        <option value="hungaro">Asignación (Método Húngaro)</option>
+        <option value="decision">Teoría de Decisión (Wald, Savage, Laplace, Hurwicz)</option>
+        <option value="arbol">Árboles de Decisión (Valor Esperado)</option>
+        <option value="markov">Cadenas de Markov / Transición</option>
         <option value="teoria">Pregunta Teórica / Desarrollo</option>
       </select>
     </div>
@@ -153,6 +156,6 @@
     </div>
   </div>
 
-  <script src="taskpane.js?v=4.1"></script>
+  <script src="taskpane.js?v=4.2"></script>
 </body>
 </html>
