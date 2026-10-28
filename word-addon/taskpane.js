@@ -432,7 +432,16 @@ function buildFullPertOoxmlFromActivities(rawActivities) {
     });
   }
 
-  // 1. Topological X Leveling (Longest path from INICIO)
+  // 1. Successor mapping
+  const succs = {};
+  acts.forEach(a => { succs[a.id] = []; });
+  acts.forEach(a => {
+    a.pred.forEach(p => {
+      if (succs[p]) succs[p].push(a.id);
+    });
+  });
+
+  // 2. Topological Levels (Col X)
   const levels = {};
   function getLevel(actId, visited = new Set()) {
     if (levels[actId] !== undefined) return levels[actId];
@@ -449,63 +458,95 @@ function buildFullPertOoxmlFromActivities(rawActivities) {
     levels[actId] = lvl;
     return lvl;
   }
-
   acts.forEach(a => getLevel(a.id));
 
-  // 2. Stream Origin Tracking (Track root branch origin: A, B, O, etc.)
-  function findStream(actId, visited = new Set()) {
-    if (visited.has(actId)) return 'Z';
-    visited.add(actId);
-
-    const act = acts.find(a => a.id === actId);
-    if (!act || act.pred.length === 0 || actId === "INICIO") return actId;
-    if (act.pred.includes("INICIO")) return actId;
-
-    // Prefer critical predecessor
-    const sortedPreds = [...act.pred].sort((p1, p2) => {
-      const a1 = acts.find(x => x.id === p1);
-      const a2 = acts.find(x => x.id === p2);
-      return (a2?.crit ? 1 : 0) - (a1?.crit ? 1 : 0);
-    });
-
-    return findStream(sortedPreds[0], visited);
+  // 3. Find all paths from INICIO to FIN
+  const allPaths = [];
+  function dfsPaths(curr, path) {
+    if (curr === "FIN") {
+      allPaths.push([...path]);
+      return;
+    }
+    const children = succs[curr] || [];
+    for (const s of children) {
+      dfsPaths(s, [...path, s]);
+    }
   }
+  dfsPaths("INICIO", ["INICIO"]);
 
-  acts.forEach(a => {
-    a.stream = findStream(a.id);
-  });
-
-  const layers = {};
-  acts.forEach(a => {
-    const lvl = levels[a.id];
-    if (!layers[lvl]) layers[lvl] = [];
-    layers[lvl].push(a);
-  });
-
-  // 3. Stream Ordering: Critical stream on top (Rank 0), then other streams
-  const critRoot = acts.find(a => a.crit && a.pred.includes("INICIO"))?.stream || "A";
-  const otherStreams = Array.from(new Set(acts.map(a => a.stream).filter(s => s !== critRoot && s !== "INICIO"))).sort();
-
-  const streamRank = { [critRoot]: 0, "INICIO": 0 };
-  otherStreams.forEach((s, idx) => {
-    streamRank[s] = idx + 1;
-  });
-
-  const maxLvl = Math.max(...Object.keys(layers).map(Number));
-
-  // Sort nodes in each layer by stream rank, then critical status
-  for (let lvl = 0; lvl <= maxLvl; lvl++) {
-    if (!layers[lvl]) continue;
-    layers[lvl].sort((a, b) => {
-      const rA = streamRank[a.stream] !== undefined ? streamRank[a.stream] : 99;
-      const rB = streamRank[b.stream] !== undefined ? streamRank[b.stream] : 99;
-      if (rA !== rB) return rA - rB;
-      if (a.crit !== b.crit) return b.crit ? 1 : -1;
-      return a.id.localeCompare(b.id);
+  function isPathCrit(path) {
+    return path.every(nid => {
+      const a = acts.find(x => x.id === nid);
+      return a ? a.crit : false;
     });
   }
 
-  // 4. Geometry & Compact Spacing (Fits inside Word A4 page)
+  // Group paths by root branch
+  const rootBranches = [];
+  allPaths.forEach(p => {
+    const rootNode = p.length > 1 ? p[1] : "FIN";
+    if (!rootBranches.includes(rootNode)) {
+      rootBranches.push(rootNode);
+    }
+  });
+
+  const critRoot = allPaths.find(p => isPathCrit(p) && p.length > 1)?.[1] || rootBranches[0];
+  const reorderedRootBranches = [critRoot, ...rootBranches.filter(r => r !== critRoot)];
+
+  const sortedPaths = [];
+  reorderedRootBranches.forEach(rb => {
+    const rbPaths = allPaths.filter(p => p.length > 1 && p[1] === rb);
+    rbPaths.sort((p1, p2) => {
+      const c1 = isPathCrit(p1) ? 1 : 0;
+      const c2 = isPathCrit(p2) ? 1 : 0;
+      if (c1 !== c2) return c2 - c1;
+      return p2.length - p1.length;
+    });
+    sortedPaths.push(...rbPaths);
+  });
+
+  const nodePathCount = {};
+  sortedPaths.forEach(p => {
+    p.forEach(nid => {
+      nodePathCount[nid] = (nodePathCount[nid] || 0) + 1;
+    });
+  });
+
+  const tracks = {};
+  let currentTrack = 0;
+
+  sortedPaths.forEach(p => {
+    const middle = p.filter(nid => nid !== "INICIO" && nid !== "FIN");
+    const unassigned = middle.filter(nid => tracks[nid] === undefined && nodePathCount[nid] === 1);
+    if (unassigned.length > 0) {
+      unassigned.forEach(nid => {
+        tracks[nid] = currentTrack;
+      });
+      currentTrack++;
+    }
+  });
+
+  const multiNodes = acts.filter(a => tracks[a.id] === undefined && a.id !== "INICIO" && a.id !== "FIN");
+  multiNodes.forEach(a => {
+    const nid = a.id;
+    const chTracks = (succs[nid] || []).filter(c => tracks[c] !== undefined).map(c => tracks[c]);
+    const prTracks = (a.pred || []).filter(p => tracks[p] !== undefined).map(p => tracks[p]);
+    const combined = [...chTracks, ...prTracks];
+    if (combined.length > 0) {
+      tracks[nid] = combined.reduce((sum, v) => sum + v, 0) / combined.length;
+    } else {
+      tracks[nid] = currentTrack++;
+    }
+  });
+
+  const incTracks = (succs["INICIO"] || []).filter(c => tracks[c] !== undefined).map(c => tracks[c]);
+  tracks["INICIO"] = incTracks.length > 0 ? (incTracks.reduce((s, v) => s + v, 0) / incTracks.length) : 0;
+
+  const finAct = acts.find(a => a.id === "FIN");
+  const finTracks = (finAct?.pred || []).filter(p => tracks[p] !== undefined).map(p => tracks[p]);
+  tracks["FIN"] = finTracks.length > 0 ? (finTracks.reduce((s, v) => s + v, 0) / finTracks.length) : 0;
+
+  // 4. Geometry & Compact Spacing (Fits inside standard Word margins)
   const nodeW = 480000;      // ~1.33 cm
   const boxW = Math.floor(nodeW / 2); // 240000
   const boxH = 140000;      // ~0.39 cm
@@ -517,45 +558,13 @@ function buildFullPertOoxmlFromActivities(rawActivities) {
   const gapX = 220000;      // ~0.61 cm
   const stepX = nodeW + gapX; // 700000
 
-  // Calculate vertical slots per stream
-  const streamSlots = {};
-  let currentSlot = 0;
-  [critRoot, ...otherStreams].forEach(s => {
-    let maxInS = 0;
-    for (let lvl = 0; lvl <= maxLvl; lvl++) {
-      const count = (layers[lvl] || []).filter(a => a.stream === s).length;
-      if (count > maxInS) maxInS = count;
-    }
-    streamSlots[s] = currentSlot;
-    currentSlot += Math.max(1, maxInS);
-  });
-
   const placedNodes = [];
-  for (let lvl = 0; lvl <= maxLvl; lvl++) {
-    if (!layers[lvl]) continue;
-    const streamSubIdx = {};
-    layers[lvl].forEach(a => {
-      const s = a.stream;
-      const sub = streamSubIdx[s] || 0;
-      streamSubIdx[s] = sub + 1;
-      const baseSlot = streamSlots[s] || 0;
-
-      // Anchor critical path rigidly to Y = 0 (top row)
-      const slot = a.crit ? 0 : (baseSlot + sub);
-      a.x = lvl * stepX;
-      a.y = slot * stepY;
-      placedNodes.push(a);
-    });
-  }
-
-  // Centering parents relative to their children (except critical path)
-  placedNodes.forEach(a => {
-    if (a.crit) return;
-    const children = placedNodes.filter(n => n.pred.includes(a.id));
-    if (children.length > 1) {
-      const avgChildY = children.reduce((sum, c) => sum + c.y, 0) / children.length;
-      a.y = Math.floor(avgChildY);
-    }
+  acts.forEach(a => {
+    const col = levels[a.id] || 0;
+    const tr = tracks[a.id] !== undefined ? tracks[a.id] : 0;
+    a.x = col * stepX;
+    a.y = Math.round(tr * stepY);
+    placedNodes.push(a);
   });
 
   // 5. Build edges
@@ -645,25 +654,13 @@ function buildFullPertOoxmlFromActivities(rawActivities) {
     const dstNode = placedNodes.find(n => n.id === dst);
     if (!srcNode || !dstNode) return;
 
-    // Smart anchor selection
-    const stIdx = 3; // always exit right
+    // Always exit from right center of source and enter left center of destination
+    const stIdx = 3; // exit right center
+    const endIdx = 1; // enter left center
     const x1 = srcNode.x + nodeW;
     const y1 = srcNode.y + boxH + Math.floor(boxH / 2);
-
-    let endIdx = 1; // enter left center
-    let x2 = dstNode.x;
-    let y2 = dstNode.y + boxH + Math.floor(boxH / 2);
-
-    const dyDiff = dstNode.y - srcNode.y;
-    if (dyDiff < -boxH * 2) {
-      endIdx = 2; // enter bottom
-      x2 = dstNode.x + Math.floor(nodeW / 2);
-      y2 = dstNode.y + boxH * 3;
-    } else if (dyDiff > boxH * 2) {
-      endIdx = 0; // enter top
-      x2 = dstNode.x + Math.floor(nodeW / 2);
-      y2 = dstNode.y;
-    }
+    const x2 = dstNode.x;
+    const y2 = dstNode.y + boxH + Math.floor(boxH / 2);
 
     const minX = Math.min(x1, x2);
     const minY = Math.min(y1, y2);
