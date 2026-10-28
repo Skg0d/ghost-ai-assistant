@@ -1986,10 +1986,11 @@ ESTRUCTURA OBLIGATORIA DEL DESARROLLO:
    - Campaña anticipada directa (sin nodos previos de estudio): Si se adelanta la campaña comprometiendo pruebas y comercialización por adelantado (costo total = estudio + comercialización = 13 M), la alternativa se bifurca DIRECTAMENTE en Éxito (0.25) y Fracaso (0.75). En caso de fracaso se evalúan las aplicaciones alternativas (0.20 y 0.80). NO intercales un nivel previo de pruebas favorables/desfavorables en la campaña anticipada; la campaña evalúa directamente Éxito vs Fracaso.
    - Prohibición de nodos ficticios: Si una alternativa exige incurrir en costos tanto si tiene éxito como si no (costos fijos irrecuperables), esos costos se descuentan de todos sus pagos terminales. NUNCA inventes nodos de decisión artificiales de 'abandonar' o 'continuar'.
    - Pagos netos terminales: Ingresos acumulados del camino menos los costos totales que ocurren en ese camino exacto.
+   - PROHIBIDO DESCONTAR DOS VECES UN MISMO COSTO (REGLA DE CÁTEDRA): Si los pagos terminales ya son netos (ingresos menos costos de ese camino), el Rollback produce directamente el VME neto en cada nodo. ¡TERMINANTEMENTE PROHIBIDO volver a restar el costo del estudio (-8 M) en el nodo raíz! En la rama de Estudio de Mercado, el VME es 5.0 M (NUNCA restes 8 M otra vez para que dé -3.0 M).
    - Aritmética rigurosa: Verifica cada operación de Rollback con exactitud matemática (sin aproximaciones erróneas).
 2. ESQUEMA JERÁRQUICO COMPLETO DEL ÁRBOL DE DECISIÓN:
-   - Representar la estructura cronológica de izquierda a derecha con sangrías y ramas legibles en formato texto/cuadro Word.
-   - Mostrar cada rama con su nombre, costo asociado, probabilidad condicional y pago terminal neto.
+   - Representar la estructura cronológica de izquierda a derecha con sangrías y ramas legibles en formato texto / árbol con conectores (ej: D1 ├── Vender directo ──> +100 M).
+   - Mostrar cada rama con su nombre, costo asociado, probabilidad condicional y pago terminal neto sin dejar campos vacíos.
 3. RESOLUCIÓN HACIA ATRÁS (ROLLBACK DE DERECHA A IZQUIERDA):
    - Comenzar por los nodos más cercanos a los pagos terminales.
    - Nodos de azar (círculos): Calcular el promedio ponderado VME = sum(Probabilidad * Valor siguiente).
