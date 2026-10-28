@@ -390,13 +390,13 @@ function parsePertTable(markdownText) {
 function buildFullPertOoxmlFromActivities(rawActivities) {
   if (!rawActivities || rawActivities.length === 0) return null;
 
-  const activities = rawActivities.map(a => ({ ...a, pred: [...a.pred] }));
+  const acts = rawActivities.map(a => ({ ...a, pred: [...a.pred] }));
 
   // Ensure INICIO node
-  const roots = activities.filter(a => a.pred.length === 0 && a.id !== "INICIO");
-  let hasInicio = activities.some(a => a.id === "INICIO");
+  const roots = acts.filter(a => a.pred.length === 0 && a.id !== "INICIO");
+  let hasInicio = acts.some(a => a.id === "INICIO");
   if (!hasInicio && roots.length > 0) {
-    activities.unshift({
+    acts.unshift({
       id: "INICIO",
       act: "INICIO",
       t: 0,
@@ -413,12 +413,12 @@ function buildFullPertOoxmlFromActivities(rawActivities) {
 
   // Ensure FIN node
   const allPreds = new Set();
-  activities.forEach(a => a.pred.forEach(p => allPreds.add(p)));
-  const terminals = activities.filter(a => !allPreds.has(a.id) && a.id !== "FIN");
-  let hasFin = activities.some(a => a.id === "FIN");
+  acts.forEach(a => a.pred.forEach(p => allPreds.add(p)));
+  const terminals = acts.filter(a => !allPreds.has(a.id) && a.id !== "FIN");
+  let hasFin = acts.some(a => a.id === "FIN");
   if (!hasFin && terminals.length > 0) {
-    const maxEf = Math.max(...activities.map(a => a.ef || 0));
-    activities.push({
+    const maxEf = Math.max(...acts.map(a => a.ef || 0));
+    acts.push({
       id: "FIN",
       act: "FIN",
       t: 0,
@@ -432,14 +432,14 @@ function buildFullPertOoxmlFromActivities(rawActivities) {
     });
   }
 
-  // Compute topological levels
+  // 1. Topological X Leveling (Longest path from INICIO)
   const levels = {};
   function getLevel(actId, visited = new Set()) {
     if (levels[actId] !== undefined) return levels[actId];
     if (visited.has(actId)) return 0;
     visited.add(actId);
 
-    const act = activities.find(a => a.id === actId);
+    const act = acts.find(a => a.id === actId);
     if (!act || act.pred.length === 0) {
       levels[actId] = 0;
       return 0;
@@ -450,41 +450,117 @@ function buildFullPertOoxmlFromActivities(rawActivities) {
     return lvl;
   }
 
-  activities.forEach(a => getLevel(a.id));
+  acts.forEach(a => getLevel(a.id));
 
-  // Group by level
+  // 2. Stream Origin Tracking (Track root branch origin: A, B, O, etc.)
+  function findStream(actId, visited = new Set()) {
+    if (visited.has(actId)) return 'Z';
+    visited.add(actId);
+
+    const act = acts.find(a => a.id === actId);
+    if (!act || act.pred.length === 0 || actId === "INICIO") return actId;
+    if (act.pred.includes("INICIO")) return actId;
+
+    // Prefer critical predecessor
+    const sortedPreds = [...act.pred].sort((p1, p2) => {
+      const a1 = acts.find(x => x.id === p1);
+      const a2 = acts.find(x => x.id === p2);
+      return (a2?.crit ? 1 : 0) - (a1?.crit ? 1 : 0);
+    });
+
+    return findStream(sortedPreds[0], visited);
+  }
+
+  acts.forEach(a => {
+    a.stream = findStream(a.id);
+  });
+
   const layers = {};
-  activities.forEach(a => {
+  acts.forEach(a => {
     const lvl = levels[a.id];
     if (!layers[lvl]) layers[lvl] = [];
     layers[lvl].push(a);
   });
 
-  // Calculate coordinates (EMUs) - Perfectly scaled for A4 Word margins
-  const nodeW = 500000; // ~1.39 cm
-  const boxW = Math.floor(nodeW / 2); // 250000 (~0.69 cm)
-  const boxH = 150000; // ~0.42 cm
-  const hH = 120000; // ~0.33 cm
-  const dx = 250000; // ~0.69 cm gap
-  const dy = 130000; // ~0.36 cm gap
+  // 3. Stream Ordering: Critical stream on top (Rank 0), then other streams
+  const critRoot = acts.find(a => a.crit && a.pred.includes("INICIO"))?.stream || "A";
+  const otherStreams = Array.from(new Set(acts.map(a => a.stream).filter(s => s !== critRoot && s !== "INICIO"))).sort();
 
-  const placedNodes = [];
-  const sortedLevels = Object.keys(layers).map(Number).sort((a, b) => a - b);
-
-  sortedLevels.forEach(lvl => {
-    const nodesInLayer = layers[lvl];
-    nodesInLayer.sort((a, b) => (b.crit ? 1 : 0) - (a.crit ? 1 : 0));
-
-    nodesInLayer.forEach((n, rowIdx) => {
-      n.x = lvl * (nodeW + dx);
-      n.y = rowIdx * (boxH * 3 + hH + dy);
-      placedNodes.push(n);
-    });
+  const streamRank = { [critRoot]: 0, "INICIO": 0 };
+  otherStreams.forEach((s, idx) => {
+    streamRank[s] = idx + 1;
   });
 
-  // Build edges
+  const maxLvl = Math.max(...Object.keys(layers).map(Number));
+
+  // Sort nodes in each layer by stream rank, then critical status
+  for (let lvl = 0; lvl <= maxLvl; lvl++) {
+    if (!layers[lvl]) continue;
+    layers[lvl].sort((a, b) => {
+      const rA = streamRank[a.stream] !== undefined ? streamRank[a.stream] : 99;
+      const rB = streamRank[b.stream] !== undefined ? streamRank[b.stream] : 99;
+      if (rA !== rB) return rA - rB;
+      if (a.crit !== b.crit) return b.crit ? 1 : -1;
+      return a.id.localeCompare(b.id);
+    });
+  }
+
+  // 4. Geometry & Compact Spacing (Fits inside Word A4 page)
+  const nodeW = 480000;      // ~1.33 cm
+  const boxW = Math.floor(nodeW / 2); // 240000
+  const boxH = 140000;      // ~0.39 cm
+  const hH = 110000;        // ~0.30 cm
+  const rowH = boxH * 3 + hH;
+  const gapY = 120000;      // ~0.33 cm
+  const stepY = rowH + gapY; // 650000
+
+  const gapX = 220000;      // ~0.61 cm
+  const stepX = nodeW + gapX; // 700000
+
+  // Calculate vertical slots per stream
+  const streamSlots = {};
+  let currentSlot = 0;
+  [critRoot, ...otherStreams].forEach(s => {
+    let maxInS = 0;
+    for (let lvl = 0; lvl <= maxLvl; lvl++) {
+      const count = (layers[lvl] || []).filter(a => a.stream === s).length;
+      if (count > maxInS) maxInS = count;
+    }
+    streamSlots[s] = currentSlot;
+    currentSlot += Math.max(1, maxInS);
+  });
+
+  const placedNodes = [];
+  for (let lvl = 0; lvl <= maxLvl; lvl++) {
+    if (!layers[lvl]) continue;
+    const streamSubIdx = {};
+    layers[lvl].forEach(a => {
+      const s = a.stream;
+      const sub = streamSubIdx[s] || 0;
+      streamSubIdx[s] = sub + 1;
+      const baseSlot = streamSlots[s] || 0;
+
+      // Anchor critical path rigidly to Y = 0 (top row)
+      const slot = a.crit ? 0 : (baseSlot + sub);
+      a.x = lvl * stepX;
+      a.y = slot * stepY;
+      placedNodes.push(a);
+    });
+  }
+
+  // Centering parents relative to their children (except critical path)
+  placedNodes.forEach(a => {
+    if (a.crit) return;
+    const children = placedNodes.filter(n => n.pred.includes(a.id));
+    if (children.length > 1) {
+      const avgChildY = children.reduce((sum, c) => sum + c.y, 0) / children.length;
+      a.y = Math.floor(avgChildY);
+    }
+  });
+
+  // 5. Build edges
   const edges = [];
-  activities.forEach(a => {
+  acts.forEach(a => {
     a.pred.forEach(p => {
       const srcNode = placedNodes.find(n => n.id === p);
       if (srcNode) {
@@ -541,7 +617,7 @@ function buildFullPertOoxmlFromActivities(rawActivities) {
             </w:p>
           </w:txbxContent>
         </wps:txbx>
-        <wps:bodyPr anchor="ctr" lIns="3000" rIns="3000" tIns="3000" bIns="3000"/>
+        <wps:bodyPr anchor="ctr" lIns="2000" rIns="2000" tIns="2000" bIns="2000"/>
       </wps:wsp>
     `;
   }
@@ -569,10 +645,25 @@ function buildFullPertOoxmlFromActivities(rawActivities) {
     const dstNode = placedNodes.find(n => n.id === dst);
     if (!srcNode || !dstNode) return;
 
+    // Smart anchor selection
+    const stIdx = 3; // always exit right
     const x1 = srcNode.x + nodeW;
     const y1 = srcNode.y + boxH + Math.floor(boxH / 2);
-    const x2 = dstNode.x;
-    const y2 = dstNode.y + boxH + Math.floor(boxH / 2);
+
+    let endIdx = 1; // enter left center
+    let x2 = dstNode.x;
+    let y2 = dstNode.y + boxH + Math.floor(boxH / 2);
+
+    const dyDiff = dstNode.y - srcNode.y;
+    if (dyDiff < -boxH * 2) {
+      endIdx = 2; // enter bottom
+      x2 = dstNode.x + Math.floor(nodeW / 2);
+      y2 = dstNode.y + boxH * 3;
+    } else if (dyDiff > boxH * 2) {
+      endIdx = 0; // enter top
+      x2 = dstNode.x + Math.floor(nodeW / 2);
+      y2 = dstNode.y;
+    }
 
     const minX = Math.min(x1, x2);
     const minY = Math.min(y1, y2);
@@ -587,7 +678,7 @@ function buildFullPertOoxmlFromActivities(rawActivities) {
     shapesXml.push(`
       <wps:wsp>
         <wps:cNvPr id="${connId}" name="F${connId}"/>
-        <wps:cNvCnPr><a:stCxn id="${srcId}" idx="3"/><a:endCxn id="${dstId}" idx="1"/></wps:cNvCnPr>
+        <wps:cNvCnPr><a:stCxn id="${srcId}" idx="${stIdx}"/><a:endCxn id="${dstId}" idx="${endIdx}"/></wps:cNvCnPr>
         <wps:spPr>
           <a:xfrm${flipH}${flipV}><a:off x="${minX}" y="${minY}"/><a:ext cx="${cx}" cy="${cy}"/></a:xfrm>
           <a:prstGeom prst="straightConnector1"><a:avLst/></a:prstGeom>
@@ -610,7 +701,7 @@ function buildFullPertOoxmlFromActivities(rawActivities) {
       <wp:inline>
         <wp:extent cx="${maxX}" cy="${maxY}"/>
         <wp:effectExtent l="0" t="0" r="0" b="0"/>
-        <wp:docPr id="5000" name="Red PERT Completa"/>
+        <wp:docPr id="5000" name="Red PERT Organizada"/>
         <wp:cNvGraphicFramePr><a:graphicFrameLocks/></wp:cNvGraphicFramePr>
         <a:graphic>
           <a:graphicData uri="http://schemas.microsoft.com/office/word/2010/wordprocessingGroup">
