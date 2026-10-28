@@ -59,19 +59,52 @@ btnTheme.addEventListener("click", () => {
   applyTheme(isDark ? "light" : "dark");
 });
 
-// Opacity Management: Fades ONLY the content area, preserving the top slider bar crisp and 100% visible
-function applyOpacity(val) {
-  const clamped = Math.max(5, Math.min(100, parseInt(val, 10) || 100));
+// Opacity & Panic Mode (Esc Toggle Switch)
+let lastActiveOpacity = 100;
+let isPanicHidden = false;
+
+function applyOpacity(val, remember = true) {
+  const clamped = Math.max(0, Math.min(100, parseInt(val, 10) || 0));
   if (stealthContent) {
     stealthContent.style.opacity = (clamped / 100).toString();
+    stealthContent.style.pointerEvents = clamped === 0 ? "none" : "auto";
   }
   opacityVal.textContent = clamped + "%";
   opacitySlider.value = clamped;
-  localStorage.setItem(STORAGE_OPACITY, clamped);
+
+  if (clamped === 0) {
+    isPanicHidden = true;
+  } else {
+    isPanicHidden = false;
+    if (remember) {
+      lastActiveOpacity = clamped;
+      localStorage.setItem(STORAGE_OPACITY, clamped);
+    }
+  }
 }
 
+function togglePanic() {
+  if (!isPanicHidden && (parseInt(opacitySlider.value, 10) > 0)) {
+    // Save current level and drop to 0% (invisible)
+    lastActiveOpacity = Math.max(20, parseInt(opacitySlider.value, 10) || 100);
+    applyOpacity(0, false);
+  } else {
+    // Restore back to the previous opacity (default 100% or min 20%)
+    const restoreVal = Math.max(20, lastActiveOpacity || 100);
+    applyOpacity(restoreVal, true);
+  }
+}
+
+// Global key listener inside add-in for 'Escape' key
+window.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") {
+    e.preventDefault();
+    togglePanic();
+  }
+});
+
 opacitySlider.addEventListener("input", (e) => {
-  applyOpacity(e.target.value);
+  applyOpacity(e.target.value, true);
 });
 
 // Load saved preferences
@@ -79,7 +112,8 @@ const savedTheme = localStorage.getItem(STORAGE_THEME) || "light";
 applyTheme(savedTheme);
 
 const savedOpacity = localStorage.getItem(STORAGE_OPACITY) || "100";
-applyOpacity(savedOpacity);
+lastActiveOpacity = Math.max(20, parseInt(savedOpacity, 10) || 100);
+applyOpacity(lastActiveOpacity, true);
 
 // API Key Management
 function getApiKey() {
