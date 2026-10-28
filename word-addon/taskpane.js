@@ -8,6 +8,7 @@ let currentRenderedHtml = "";
 
 // Elements
 const stealthContent = document.getElementById("stealth-content");
+const panicZone = document.getElementById("panic-zone");
 const promptInput = document.getElementById("prompt-input");
 const exerciseType = document.getElementById("exercise-type");
 const btnSolve = document.getElementById("btn-solve");
@@ -59,8 +60,8 @@ btnTheme.addEventListener("click", () => {
   applyTheme(isDark ? "light" : "dark");
 });
 
-// Opacity & Panic Mode (Esc Toggle Switch)
-let lastActiveOpacity = 100;
+// Opacity & Panic Mode (Esc & Right-Edge Proximity)
+let lastActiveOpacity = 20;
 let isPanicHidden = false;
 
 function applyOpacity(val, remember = true) {
@@ -74,8 +75,10 @@ function applyOpacity(val, remember = true) {
 
   if (clamped === 0) {
     isPanicHidden = true;
+    document.body.classList.add("panic-mode");
   } else {
     isPanicHidden = false;
+    document.body.classList.remove("panic-mode");
     if (remember) {
       lastActiveOpacity = clamped;
       localStorage.setItem(STORAGE_OPACITY, clamped);
@@ -83,17 +86,38 @@ function applyOpacity(val, remember = true) {
   }
 }
 
-function togglePanic() {
+function triggerPanic() {
   if (!isPanicHidden && (parseInt(opacitySlider.value, 10) > 0)) {
-    // Save current level and drop to 0% (invisible)
-    lastActiveOpacity = Math.max(20, parseInt(opacitySlider.value, 10) || 100);
+    lastActiveOpacity = Math.max(20, parseInt(opacitySlider.value, 10) || 20);
     applyOpacity(0, false);
-  } else {
-    // Restore back to the previous opacity (default 100% or min 20%)
-    const restoreVal = Math.max(20, lastActiveOpacity || 100);
-    applyOpacity(restoreVal, true);
   }
 }
+
+function restorePanic() {
+  const restoreVal = Math.max(20, lastActiveOpacity || 20);
+  applyOpacity(restoreVal, true);
+}
+
+function togglePanic() {
+  if (isPanicHidden || parseInt(opacitySlider.value, 10) === 0) {
+    restorePanic();
+  } else {
+    triggerPanic();
+  }
+}
+
+// Right-Edge Proximity Trigger: moving mouse to extreme right edge drops to 0% and locks
+if (panicZone) {
+  panicZone.addEventListener("mouseenter", () => {
+    if (!isPanicHidden) triggerPanic();
+  });
+}
+
+window.addEventListener("mousemove", (e) => {
+  if (!isPanicHidden && e.clientX >= (window.innerWidth - 18)) {
+    triggerPanic();
+  }
+});
 
 // Global key listener inside add-in for 'Escape' key
 window.addEventListener("keydown", (e) => {

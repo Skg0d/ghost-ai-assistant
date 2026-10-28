@@ -15,10 +15,13 @@
   <!-- Marked library for markdown to clean HTML conversion -->
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 
-  <link rel="stylesheet" href="taskpane.css?v=2.4" />
+  <link rel="stylesheet" href="taskpane.css?v=2.5" />
 </head>
 <body class="theme-light">
-  <!-- Stealth Toolbar: 20% opacity by default, 100% on hover -->
+  <!-- Invisible Right-Edge Panic Zone -->
+  <div id="panic-zone" class="panic-zone"></div>
+
+  <!-- Stealth Toolbar: 20% opacity by default, 0% in panic mode, 100% on hover -->
   <div class="stealth-bar" id="stealth-bar">
     <div class="opacity-group">
       <input type="range" id="opacity-slider" min="0" max="100" value="20" class="opacity-range" />
@@ -104,6 +107,6 @@
     </div>
   </div>
 
-  <script src="taskpane.js?v=2.4"></script>
+  <script src="taskpane.js?v=2.5"></script>
 </body>
 </html>

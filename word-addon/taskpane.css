@@ -316,6 +316,28 @@ body.theme-dark .modal-link-box a {
   opacity: 1 !important; /* Lights up to 100% on hover or when clicking */
 }
 
+/* In Panic Mode: even the top bar drops to 0% (fully invisible until hovered) */
+body.panic-mode .stealth-bar {
+  opacity: 0 !important;
+}
+
+body.panic-mode .stealth-bar:hover,
+body.panic-mode .stealth-bar:focus-within {
+  opacity: 1 !important;
+}
+
+/* Invisible Right-Edge Panic Strip */
+.panic-zone {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 18px;
+  z-index: 99999;
+  background: transparent;
+  pointer-events: auto;
+}
+
 .opacity-group {
   display: flex;
   align-items: center;
