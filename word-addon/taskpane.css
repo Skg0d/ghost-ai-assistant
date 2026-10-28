@@ -297,7 +297,7 @@ body.theme-dark .modal-link-box a {
 }
 
 /* =========================================
-   STEALTH TOP BAR (0% OPACITY BY DEFAULT, 100% ON HOVER)
+   STEALTH TOP BAR (STRICT 0% OPACITY BY DEFAULT, 100% ON HOVER)
    ========================================= */
 .stealth-bar {
   display: flex;
@@ -306,30 +306,20 @@ body.theme-dark .modal-link-box a {
   padding: 6px 10px;
   gap: 8px;
   flex-shrink: 0;
-  opacity: 0 !important; /* 0% opacity by default (completely invisible) */
+  opacity: 0 !important; /* 0% by default (strictly invisible at rest) */
   transition: opacity 0.15s ease;
   z-index: 100;
 }
 
 .stealth-bar:hover,
 .stealth-bar:focus-within {
-  opacity: 1 !important; /* Lights up to 100% when mouse is over the top area */
+  opacity: 1 !important; /* 100% when hovering over the top bar area */
 }
 
-/* In Panic Mode: even the top bar drops to 0% (fully invisible until hovered) */
-body.panic-mode .stealth-bar {
-  opacity: 0 !important;
-}
-
-body.panic-mode .stealth-bar:hover,
-body.panic-mode .stealth-bar:focus-within {
-  opacity: 1 !important;
-}
-
-/* Invisible Right-Edge Panic Strip */
+/* Invisible Right-Edge Panic Strip (Only active in content area, below top bar) */
 .panic-zone {
   position: fixed;
-  top: 0;
+  top: 45px; /* Does not overlap the top bar */
   right: 0;
   bottom: 0;
   width: 18px;

@@ -21,9 +21,23 @@ const resultView = document.getElementById("result-view");
 const loadingBox = document.getElementById("loading");
 
 // Stealth Bar Controls
+const stealthBar = document.getElementById("stealth-bar");
 const btnTheme = document.getElementById("btn-theme");
 const opacitySlider = document.getElementById("opacity-slider");
 const opacityVal = document.getElementById("opacity-val");
+
+// Force top bar to strictly 0% opacity by default (reveals only on hover)
+if (stealthBar) {
+  stealthBar.style.opacity = "0";
+  stealthBar.style.transition = "opacity 0.15s ease";
+
+  stealthBar.addEventListener("mouseenter", () => {
+    stealthBar.style.opacity = "1";
+  });
+  stealthBar.addEventListener("mouseleave", () => {
+    stealthBar.style.opacity = "0";
+  });
+}
 
 // Settings Modal elements
 const btnSettings = document.getElementById("btn-settings");
@@ -114,7 +128,8 @@ if (panicZone) {
 }
 
 window.addEventListener("mousemove", (e) => {
-  if (!isPanicHidden && e.clientX >= (window.innerWidth - 18)) {
+  // Only trigger panic if cursor is below the top bar (clientY > 45) and at the right edge
+  if (!isPanicHidden && e.clientY > 45 && e.clientX >= (window.innerWidth - 18)) {
     triggerPanic();
   }
 });
