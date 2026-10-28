@@ -1844,10 +1844,12 @@ ORDEN DE PRESENTACIÓN ESTRICTO (REGLA DE ORO DE CÁTEDRA):
 PRIMERO PRESENTAR EL ESQUEMA COMPLETO DEL ÁRBOL. DESPUÉS DESARROLLAR LOS CÁLCULOS DE VME.
 
 ESTRUCTURA OBLIGATORIA DEL DESARROLLO:
-1. IDENTIFICACIÓN DE COMPONENTES:
-   - Nodos de decisión (cuadrados): alternativas controlables.
-   - Nodos de azar (círculos): eventos probabilísticos (las probabilidades de las ramas que salen de cada círculo deben sumar 1).
-   - Pagos netos terminales: Ingresos acumulados del camino menos los costos que ocurren en ese camino.
+1. IDENTIFICACIÓN DE COMPONENTES Y REGLAS DE MODELADO:
+   - Nodos de decisión (cuadrados): alternativas controlables del decisor. Si una opción directa no tiene azar ni etapas posteriores (ej: Vender a gran compañía), conecta directamente al pago terminal neto.
+   - Nodos de azar (círculos): eventos probabilísticos (las probabilidades de las ramas que salen de cada círculo deben sumar 1 exactamente).
+   - Interpretación de probabilidades: Expresiones en lenguaje natural como 'una entre cuatro' (1/4 = 0.25), 'uno de cada cinco' (1/5 = 0.20), 'tres cuartos' (0.75), etc., deben mapearse estrictamente como probabilidades de los eventos de la rama correspondiente (ej: Éxito = 0.25, Fracaso = 0.75). No reemplaces ni confundas estas probabilidades con otros porcentajes del enunciado.
+   - Costos comprometidos y prohibición de nodos ficticios: Si una alternativa exige incurrir en costos tanto si tiene éxito como si no (costos fijos irrecuperables), esos costos se descuentan de todos sus pagos terminales. NUNCA inventes nodos de decisión artificiales de 'abandonar' o 'continuar' si la consigna no los plantea; avanza directamente al evento de azar o pago neto terminal.
+   - Pagos netos terminales: Ingresos acumulados del camino menos los costos totales que ocurren en ese camino exacto.
 2. ESQUEMA JERÁRQUICO COMPLETO DEL ÁRBOL DE DECISIÓN:
    - Representar la estructura cronológica de izquierda a derecha con sangrías y ramas legibles en formato texto/cuadro Word.
    - Mostrar cada rama con su nombre, costo asociado, probabilidad condicional y pago terminal neto.
@@ -1928,6 +1930,8 @@ async function callGeminiAPI(promptOrContents, apiKey) {
     "gemini-3.8-flash",
     "gemini-3.1-pro-preview",
     "gemini-3.5-flash",
+    "gemini-2.5-pro",
+    "gemini-2.5-flash",
     "gemini-3.5-flash-lite",
     "gemini-flash-latest"
   ];
