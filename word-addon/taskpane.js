@@ -1927,11 +1927,12 @@ ESTRUCTURA OBLIGATORIA DEL DESARROLLO (Paso a Paso):
 3. PASO 2 - REDUCCIÓN POR COLUMNAS:
    - Sobre la matriz reducida por filas, identificar el valor mínimo de cada columna y restarlo a su columna.
    - Mostrar la nueva matriz reducida.
-4. PASO 3 - COBERTURA MÍNIMA DE CEROS:
-   - Trazar la cantidad mínima de líneas rectas (horizontales y verticales) necesarias para cubrir TODOS los ceros: L.
-   - Si L = n: Se ha alcanzado la base para la asignación óptima. Pasar a la selección.
-   - Si L < n: Proseguir al ajuste de matriz con h.
-5. PASO 4 - AJUSTE CON MENOR ELEMENTO NO CUBIERTO (h):
+4. PASO 3 - COBERTURA MÍNIMA DE CEROS (REGLA ESTRICTA DE CÁTEDRA):
+   - Trazar la cantidad mínima de líneas rectas (horizontales y verticales) necesarias para cubrir ABSOLUTAMENTE TODOS los ceros de la matriz reducida: L.
+   - Comprobación estricta: Comprueba que ninguna celda con valor 0 quede al descubierto. Si existen n ceros independientes (que no comparten fila ni columna), la cobertura mínima es obligatoriamente L = n.
+   - REGLA DE NO INVENTAR AJUSTES: Si L = n, la solución óptima está alcanzada directamente en la matriz reducida. TERMINANTEMENTE PROHIBIDO inventar pasos de ajuste si L = n (pasar directamente al Paso de Asignación).
+   - Solo si L < n: Proseguir al Paso 4 de ajuste con h.
+5. PASO 4 - AJUSTE CON MENOR ELEMENTO NO CUBIERTO (h) [Solo si L < n]:
    - Determinar h = menor valor entre las celdas NO cubiertas por ninguna línea.
    - Restar h a todas las celdas descubiertas.
    - Sumar h a las intersecciones de dos líneas (cruce de línea horizontal y vertical).
@@ -1940,10 +1941,16 @@ ESTRUCTURA OBLIGATORIA DEL DESARROLLO (Paso a Paso):
 6. PASO 5 - ASIGNACIÓN DE CEROS INDEPENDIENTES:
    - Seleccionar sistemáticamente ceros independientes: iniciar por filas o columnas con un ÚNICO cero no asignado, seleccionarlo y tachar los ceros restantes de su fila y columna.
    - Completar exactamente una asignación por fila y por columna.
-7. RESULTADO FINAL Y COSTO TOTAL (EVALUADO EN LA MATRIZ ORIGINAL):
+7. RESULTADO FINAL Y COSTO UNITARIO TOTAL (EVALUADO EN LA MATRIZ ORIGINAL):
    - Detallar la pareja de asignación formal: Recurso_i -> Tarea_j.
    - OBLIGATORIO: Tomar los costos/beneficios de la MATRIZ ORIGINAL (NUNCA sumar los ceros de la matriz reducida).
-   - Sumatoria formal y costo total óptimo Z*.`;
+   - Sumatoria formal y costo total unitario óptimo Z*.
+8. TABLA DE COSTOS ASOCIADOS A LA DISTRIBUCIÓN (SI EL ENUNCIADO INCLUYE LITROS / VOLÚMENES):
+   - Tabla Markdown formal de distribución valorizada: Depósito, Producto Asignado, Capacidad (L), Pedido (L), Litros Asignados, Costo Unitario ($/L), Costo Total ($) y Balance (sobrante o faltante).
+   - Calcular el Costo Total de Distribución Directa en pesos.
+   - Mostrar además la interpretación de distribución balanceada continua (Transporte con trasvase de excedentes para abastecer los 395 L totales) según la Sección 10.1 del manual de cátedra.
+9. GRÁFICO DE DISTRIBUCIÓN:
+   - Presentar el grafo bipartito visual de asignación y distribución con Orígenes a la izquierda, Destinos a la derecha, flechas dirigidas, cantidades y costos.`;
   } else if (resolvedType === "decision") {
     typeInstruction = `
 TIPO DE PROBLEMA: TEORÍA DE LA DECISIÓN / MATRICES DE PAGOS (REGLAS DE CÁTEDRA).
