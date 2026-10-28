@@ -5,6 +5,7 @@ const STORAGE_OPACITY = "ghost_addon_opacity";
 
 let currentRawMarkdown = "";
 let currentRenderedHtml = "";
+let currentPertOoxml = null;
 
 // Elements
 const stealthContent = document.getElementById("stealth-content");
@@ -15,6 +16,7 @@ const btnSolve = document.getElementById("btn-solve");
 const btnClear = document.getElementById("btn-clear");
 const btnGetSelection = document.getElementById("btn-get-selection");
 const btnInsertWord = document.getElementById("btn-insert-word");
+const btnInsertDrawing = document.getElementById("btn-insert-drawing");
 const btnCopyClipboard = document.getElementById("btn-copy-clipboard");
 const resultContainer = document.getElementById("result-container");
 const resultView = document.getElementById("result-view");
@@ -226,6 +228,9 @@ btnGetSelection.addEventListener("click", async () => {
 function prepareWordHtml(html) {
   let clean = html;
 
+  // 0. Remove hidden HTML comments (e.g. PERT_DATA)
+  clean = clean.replace(/<!--[\s\S]*?-->/g, "");
+
   // 1. Remove code blocks (<pre><code>) if any, converting them into clean normal text
   clean = clean.replace(/<pre><code[^>]*>([\s\S]*?)<\/code><\/pre>/gi, (match, code) => {
     return `<div style="font-family: Calibri, sans-serif; padding: 8px 0; margin: 8px 0; line-height: 1.4;">${code}</div>`;
@@ -314,44 +319,205 @@ btnCopyClipboard.addEventListener("click", () => {
 });
 
 // ==========================================
-// Test Drawing Generator (Vector Word Canvas)
+// Full PERT Graph & DrawingML OOXML Generator
 // ==========================================
-function generatePertOoxml(nodes, edges) {
-  const nodeW = 733963;
-  const boxW = 366982;
-  const boxH = 301307;
-  const hH = 250000;
+function parsePertTable(markdownText) {
+  // 1. Try parsing from hidden HTML comment first
+  const commentMatch = markdownText.match(/<!--\s*PERT_DATA:\s*([\s\S]*?)-->/);
+  if (commentMatch) {
+    try {
+      const data = JSON.parse(commentMatch[1].trim());
+      if (Array.isArray(data) && data.length > 0) return data;
+    } catch (e) {
+      console.warn("Failed to parse PERT_DATA comment:", e);
+    }
+  }
+
+  // 2. Fallback: Parse markdown table
+  const lines = markdownText.split("\n");
+  const activities = [];
+  let tableFound = false;
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed.startsWith("|") || !trimmed.endsWith("|")) {
+      if (tableFound && activities.length > 0) break;
+      continue;
+    }
+
+    const cells = trimmed.split("|").slice(1, -1).map(c => c.trim().replace(/\*\*/g, "").replace(/\*/g, ""));
+    if (cells.length < 8) continue;
+
+    const firstCell = cells[0].toLowerCase();
+    if (firstCell.includes("actividad") || firstCell.includes("tarea") || firstCell.includes("nodo")) {
+      tableFound = true;
+      continue;
+    }
+    if (cells[0].includes("---") || cells[0].includes(":-")) {
+      continue;
+    }
+
+    if (!tableFound) continue;
+
+    const id = cells[0].replace(/[^a-zA-Z0-9_]/g, "").toUpperCase();
+    if (!id || id.length > 10) continue;
+
+    const predStr = cells[1];
+    const preds = (predStr === "-" || predStr.toLowerCase().includes("ningun") || !predStr)
+      ? []
+      : predStr.split(/[,;\s]+/).map(p => p.replace(/[^a-zA-Z0-9_]/g, "").toUpperCase()).filter(Boolean);
+
+    const t = parseFloat(cells[2]) || 0;
+    const es = parseFloat(cells[3]) || 0;
+    const ef = parseFloat(cells[4]) || 0;
+    const ls = parseFloat(cells[5]) || 0;
+    const lf = parseFloat(cells[6]) || 0;
+    const h = parseFloat(cells[7]) || (lf - ef);
+    const crit = (cells[8] && (cells[8].toLowerCase().includes("s") || cells[8].toLowerCase().includes("crít"))) || (h === 0);
+
+    activities.push({ id, act: id, t, pred: preds, es, ef, ls, lf, h, crit });
+  }
+
+  return activities;
+}
+
+function buildFullPertOoxmlFromActivities(rawActivities) {
+  if (!rawActivities || rawActivities.length === 0) return null;
+
+  const activities = rawActivities.map(a => ({ ...a, pred: [...a.pred] }));
+
+  // Ensure INICIO node
+  const roots = activities.filter(a => a.pred.length === 0 && a.id !== "INICIO");
+  let hasInicio = activities.some(a => a.id === "INICIO");
+  if (!hasInicio && roots.length > 0) {
+    activities.unshift({
+      id: "INICIO",
+      act: "INICIO",
+      t: 0,
+      pred: [],
+      es: 0,
+      ef: 0,
+      ls: 0,
+      lf: 0,
+      h: 0,
+      crit: true
+    });
+    roots.forEach(r => r.pred.push("INICIO"));
+  }
+
+  // Ensure FIN node
+  const allPreds = new Set();
+  activities.forEach(a => a.pred.forEach(p => allPreds.add(p)));
+  const terminals = activities.filter(a => !allPreds.has(a.id) && a.id !== "FIN");
+  let hasFin = activities.some(a => a.id === "FIN");
+  if (!hasFin && terminals.length > 0) {
+    const maxEf = Math.max(...activities.map(a => a.ef || 0));
+    activities.push({
+      id: "FIN",
+      act: "FIN",
+      t: 0,
+      pred: terminals.map(t => t.id),
+      es: maxEf,
+      ef: maxEf,
+      ls: maxEf,
+      lf: maxEf,
+      h: 0,
+      crit: true
+    });
+  }
+
+  // Compute topological levels
+  const levels = {};
+  function getLevel(actId, visited = new Set()) {
+    if (levels[actId] !== undefined) return levels[actId];
+    if (visited.has(actId)) return 0;
+    visited.add(actId);
+
+    const act = activities.find(a => a.id === actId);
+    if (!act || act.pred.length === 0) {
+      levels[actId] = 0;
+      return 0;
+    }
+
+    const lvl = Math.max(...act.pred.map(p => getLevel(p, visited))) + 1;
+    levels[actId] = lvl;
+    return lvl;
+  }
+
+  activities.forEach(a => getLevel(a.id));
+
+  // Group by level
+  const layers = {};
+  activities.forEach(a => {
+    const lvl = levels[a.id];
+    if (!layers[lvl]) layers[lvl] = [];
+    layers[lvl].push(a);
+  });
+
+  // Calculate coordinates (EMUs)
+  const nodeW = 650000;
+  const boxW = Math.floor(nodeW / 2);
+  const boxH = 240000;
+  const hH = 200000;
+  const dx = 550000;
+  const dy = 320000;
+
+  const placedNodes = [];
+  const sortedLevels = Object.keys(layers).map(Number).sort((a, b) => a - b);
+
+  sortedLevels.forEach(lvl => {
+    const nodesInLayer = layers[lvl];
+    nodesInLayer.sort((a, b) => (b.crit ? 1 : 0) - (a.crit ? 1 : 0));
+
+    nodesInLayer.forEach((n, rowIdx) => {
+      n.x = lvl * (nodeW + dx);
+      n.y = rowIdx * (boxH * 3 + hH + dy);
+      placedNodes.push(n);
+    });
+  });
+
+  // Build edges
+  const edges = [];
+  activities.forEach(a => {
+    a.pred.forEach(p => {
+      const srcNode = placedNodes.find(n => n.id === p);
+      if (srcNode) {
+        const isCrit = a.crit && srcNode.crit;
+        edges.push([p, a.id, isCrit]);
+      }
+    });
+  });
 
   let maxX = 0;
   let maxY = 0;
-  nodes.forEach(n => {
+  placedNodes.forEach(n => {
     if (n.x + nodeW > maxX) maxX = n.x + nodeW;
     if (n.y + boxH * 3 + hH > maxY) maxY = n.y + boxH * 3 + hH;
   });
-  maxX += 200000;
-  maxY += 200000;
+  maxX += 150000;
+  maxY += 150000;
 
   let shapeCounter = 1000;
   const shapesXml = [];
   const nodeMidShapeIds = {};
 
-  function makeTextbox(shapeId, x, y, cx, cy, text, isBorderless, isBold) {
+  function makeBox(sId, x, y, cx, cy, text, isCrit, isBorderless, isBold) {
     const lnXml = isBorderless
       ? '<a:ln><a:noFill/></a:ln>'
-      : '<a:ln w="12700"><a:solidFill><a:srgbClr val="000000"/></a:solidFill></a:ln>';
-    const bAttr = isBold ? '<w:b/>' : '';
+      : `<a:ln w="${isCrit ? 19000 : 12700}"><a:solidFill><a:srgbClr val="000000"/></a:solidFill></a:ln>`;
+    const fillXml = isCrit && !isBorderless
+      ? '<a:solidFill><a:srgbClr val="F0F4F8"/></a:solidFill>'
+      : '<a:solidFill><a:schemeClr val="lt1"/></a:solidFill>';
+    const bTag = isBold ? '<w:b/>' : '';
 
     return `
       <wps:wsp>
-        <wps:cNvPr id="${shapeId}" name="Box ${shapeId}"/>
+        <wps:cNvPr id="${sId}" name="B${sId}"/>
         <wps:cNvSpPr/>
         <wps:spPr>
-          <a:xfrm>
-            <a:off x="${x}" y="${y}"/>
-            <a:ext cx="${cx}" cy="${cy}"/>
-          </a:xfrm>
+          <a:xfrm><a:off x="${x}" y="${y}"/><a:ext cx="${cx}" cy="${cy}"/></a:xfrm>
           <a:prstGeom prst="rect"><a:avLst/></a:prstGeom>
-          <a:solidFill><a:schemeClr val="lt1"/></a:solidFill>
+          ${fillXml}
           ${lnXml}
         </wps:spPr>
         <wps:txbx>
@@ -359,60 +525,42 @@ function generatePertOoxml(nodes, edges) {
             <w:p>
               <w:pPr>
                 <w:jc w:val="center"/>
-                <w:spacing w:line="220" w:lineRule="auto" w:before="0" w:after="0"/>
-                <w:rPr>
-                  <w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/>
-                  <w:sz w:val="18"/>
-                  ${bAttr}
-                </w:rPr>
+                <w:spacing w:line="200" w:lineRule="auto" w:before="0" w:after="0"/>
+                <w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/><w:sz w:val="17"/>${bTag}</w:rPr>
               </w:pPr>
               <w:r>
-                <w:rPr>
-                  <w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/>
-                  <w:sz w:val="18"/>
-                  ${bAttr}
-                </w:rPr>
+                <w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/><w:sz w:val="17"/>${bTag}</w:rPr>
                 <w:t>${text}</w:t>
               </w:r>
             </w:p>
           </w:txbxContent>
         </wps:txbx>
-        <wps:bodyPr anchor="ctr" lIns="10000" rIns="10000" tIns="10000" bIns="10000"/>
+        <wps:bodyPr anchor="ctr" lIns="5000" rIns="5000" tIns="5000" bIns="5000"/>
       </wps:wsp>
     `;
   }
 
-  nodes.forEach(n => {
+  placedNodes.forEach(n => {
     const nx = n.x;
     const ny = n.y;
+    const crit = n.crit;
 
-    const sEs = shapeCounter++;
-    shapesXml.push(makeTextbox(sEs, nx, ny, boxW, boxH, String(n.es)));
-
-    const sEf = shapeCounter++;
-    shapesXml.push(makeTextbox(sEf, nx + boxW, ny, boxW, boxH, String(n.ef)));
-
+    shapesXml.push(makeBox(shapeCounter++, nx, ny, boxW, boxH, String(n.es), crit, false, false));
+    shapesXml.push(makeBox(shapeCounter++, nx + boxW, ny, boxW, boxH, String(n.ef), crit, false, false));
     const sMid = shapeCounter++;
     nodeMidShapeIds[n.id] = sMid;
-    const actLabel = (n.t !== undefined && n.t !== null) ? `${n.act} (t=${n.t})` : n.act;
-    shapesXml.push(makeTextbox(sMid, nx, ny + boxH, nodeW, boxH, actLabel, false, true));
-
-    const sLs = shapeCounter++;
-    shapesXml.push(makeTextbox(sLs, nx, ny + boxH * 2, boxW, boxH, String(n.ls)));
-
-    const sLf = shapeCounter++;
-    shapesXml.push(makeTextbox(sLf, nx + boxW, ny + boxH * 2, boxW, boxH, String(n.lf)));
-
-    const sH = shapeCounter++;
-    const hX = nx + Math.floor((nodeW - 454122) / 2);
-    shapesXml.push(makeTextbox(sH, hX, ny + boxH * 3, 454122, hH, `h=${n.h}`, true, false));
+    const actLbl = n.t > 0 ? `${n.act} (t=${n.t})` : n.act;
+    shapesXml.push(makeBox(sMid, nx, ny + boxH, nodeW, boxH, actLbl, crit, false, true));
+    shapesXml.push(makeBox(shapeCounter++, nx, ny + boxH * 2, boxW, boxH, String(n.ls), crit, false, false));
+    shapesXml.push(makeBox(shapeCounter++, nx + boxW, ny + boxH * 2, boxW, boxH, String(n.lf), crit, false, false));
+    shapesXml.push(makeBox(shapeCounter++, nx + Math.floor((nodeW - 400000) / 2), ny + boxH * 3, 400000, hH, `h=${n.h}`, crit, true, crit));
   });
 
-  edges.forEach(([src, dst]) => {
+  edges.forEach(([src, dst, isCrit]) => {
     const srcId = nodeMidShapeIds[src];
     const dstId = nodeMidShapeIds[dst];
-    const srcNode = nodes.find(n => n.id === src);
-    const dstNode = nodes.find(n => n.id === dst);
+    const srcNode = placedNodes.find(n => n.id === src);
+    const dstNode = placedNodes.find(n => n.id === dst);
     if (!srcNode || !dstNode) return;
 
     const x1 = srcNode.x + nodeW;
@@ -423,21 +571,16 @@ function generatePertOoxml(nodes, edges) {
     const cx = x2 - x1;
     const cy = y2 - y1;
     const connId = shapeCounter++;
+    const lw = isCrit ? 25000 : 12700;
 
     shapesXml.push(`
       <wps:wsp>
-        <wps:cNvPr id="${connId}" name="Flecha ${connId}"/>
-        <wps:cNvCnPr>
-          <a:stCxn id="${srcId}" idx="3"/>
-          <a:endCxn id="${dstId}" idx="1"/>
-        </wps:cNvCnPr>
+        <wps:cNvPr id="${connId}" name="F${connId}"/>
+        <wps:cNvCnPr><a:stCxn id="${srcId}" idx="3"/><a:endCxn id="${dstId}" idx="1"/></wps:cNvCnPr>
         <wps:spPr>
-          <a:xfrm>
-            <a:off x="${x1}" y="${y1}"/>
-            <a:ext cx="${cx}" cy="${cy}"/>
-          </a:xfrm>
+          <a:xfrm><a:off x="${x1}" y="${y1}"/><a:ext cx="${cx}" cy="${cy}"/></a:xfrm>
           <a:prstGeom prst="straightConnector1"><a:avLst/></a:prstGeom>
-          <a:ln w="15000">
+          <a:ln w="${lw}">
             <a:solidFill><a:srgbClr val="000000"/></a:solidFill>
             <a:tailEnd type="triangle" w="med" len="med"/>
           </a:ln>
@@ -456,10 +599,8 @@ function generatePertOoxml(nodes, edges) {
       <wp:inline>
         <wp:extent cx="${maxX}" cy="${maxY}"/>
         <wp:effectExtent l="0" t="0" r="0" b="0"/>
-        <wp:docPr id="1000" name="Lienzo PERT"/>
-        <wp:cNvGraphicFramePr>
-          <a:graphicFrameLocks/>
-        </wp:cNvGraphicFramePr>
+        <wp:docPr id="5000" name="Red PERT Completa"/>
+        <wp:cNvGraphicFramePr><a:graphicFrameLocks/></wp:cNvGraphicFramePr>
         <a:graphic>
           <a:graphicData uri="http://schemas.microsoft.com/office/word/2010/wordprocessingGroup">
             <wpg:wgp>
@@ -510,20 +651,55 @@ function generatePertOoxml(nodes, edges) {
 </pkg:package>`;
 }
 
+// Button: Insert Generated Red PERT Drawing
+if (btnInsertDrawing) {
+  btnInsertDrawing.addEventListener("click", async () => {
+    if (!currentPertOoxml) {
+      alert("No hay diagrama de red generado para insertar.");
+      return;
+    }
+
+    if (typeof Word !== "undefined" && Word.run) {
+      try {
+        await Word.run(async (context) => {
+          const selection = context.document.getSelection();
+          selection.insertOoxml(currentPertOoxml, Word.InsertLocation.replace);
+          await context.sync();
+        });
+        alert("¡Diagrama de red vectorial insertado exitosamente en Word! Puedes editarlo o reacomodar nodos con doble clic.");
+        return;
+      } catch (e) {
+        console.warn("Word.run insertOoxml fallback:", e);
+        alert("Error al insertar el diagrama en Word: " + e.message);
+      }
+    }
+
+    if (typeof Office !== "undefined" && Office.context && Office.context.document) {
+      Office.context.document.setSelectedDataAsync(currentPertOoxml, { coercionType: Office.CoercionType.Ooxml }, (result) => {
+        if (result.status === Office.AsyncResultStatus.Succeeded) {
+          alert("¡Diagrama insertado exitosamente en Word!");
+        } else {
+          alert("Error al insertar: " + result.error.message);
+        }
+      });
+      return;
+    }
+
+    alert("Para insertar el dibujo, abre el complemento dentro de Word.");
+  });
+}
+
+// Button: Test 3-node Drawing
 const btnTestDrawing = document.getElementById("btn-test-drawing");
 if (btnTestDrawing) {
   btnTestDrawing.addEventListener("click", async () => {
     try {
       const sampleNodes = [
-        { id: 'INICIO', act: 'INICIO', t: 0, es: 0, ef: 0, ls: 0, lf: 0, h: 0, x: 0, y: 150000 },
-        { id: 'A', act: 'A', t: 3, es: 0, ef: 3, ls: 0, lf: 3, h: 0, x: 1400000, y: 150000 },
-        { id: 'C', act: 'C', t: 1, es: 3, ef: 4, ls: 3, lf: 4, h: 0, x: 2800000, y: 150000 }
+        { id: 'INICIO', act: 'INICIO', t: 0, pred: [], es: 0, ef: 0, ls: 0, lf: 0, h: 0, crit: true },
+        { id: 'A', act: 'A', t: 3, pred: ['INICIO'], es: 0, ef: 3, ls: 0, lf: 3, h: 0, crit: true },
+        { id: 'C', act: 'C', t: 1, pred: ['A'], es: 3, ef: 4, ls: 3, lf: 4, h: 0, crit: true }
       ];
-      const sampleEdges = [
-        ['INICIO', 'A'],
-        ['A', 'C']
-      ];
-      const opcXml = generatePertOoxml(sampleNodes, sampleEdges);
+      const opcXml = buildFullPertOoxmlFromActivities(sampleNodes);
 
       if (typeof Word !== "undefined" && Word.run) {
         await Word.run(async (context) => {
@@ -531,14 +707,14 @@ if (btnTestDrawing) {
           selection.insertOoxml(opcXml, Word.InsertLocation.replace);
           await context.sync();
         });
-        alert("¡Éxito! Lienzo de dibujo con 3 nodos y flechas insertado en tu Word. Haz clic sobre él en Word para comprobar si se activa el editor de dibujo.");
+        alert("¡Éxito! Lienzo de dibujo con 3 nodos insertado. Haz doble clic para editar.");
         return;
       }
 
       if (typeof Office !== "undefined" && Office.context && Office.context.document) {
         Office.context.document.setSelectedDataAsync(opcXml, { coercionType: Office.CoercionType.Ooxml }, (result) => {
           if (result.status === Office.AsyncResultStatus.Succeeded) {
-            alert("¡Éxito! Lienzo de dibujo insertado en Word.");
+            alert("¡Éxito! Lienzo de dibujo insertado.");
           } else {
             alert("Error al insertar OOXML: " + result.error.message);
           }
@@ -580,6 +756,22 @@ btnSolve.addEventListener("click", async () => {
   try {
     const responseText = await callGeminiAPI(prompt, apiKey);
     currentRawMarkdown = responseText;
+
+    // Check if response contains PERT data to generate native Vector Drawing Canvas
+    const pertActivities = parsePertTable(responseText);
+    if (pertActivities && pertActivities.length >= 2) {
+      try {
+        currentPertOoxml = buildFullPertOoxmlFromActivities(pertActivities);
+        if (btnInsertDrawing) btnInsertDrawing.style.display = "block";
+      } catch (e) {
+        console.warn("Error building full PERT OOXML:", e);
+        currentPertOoxml = null;
+        if (btnInsertDrawing) btnInsertDrawing.style.display = "none";
+      }
+    } else {
+      currentPertOoxml = null;
+      if (btnInsertDrawing) btnInsertDrawing.style.display = "none";
+    }
 
     // Convert markdown to clean HTML with native Word elements
     if (typeof marked !== "undefined" && marked.parse) {
@@ -667,7 +859,16 @@ Genera obligatoriamente la tabla con esta estructura exacta de 9 columnas, verif
 
 5. CAMINO CRÍTICO Y CONCLUSIONES:
 - Duración mínima de realización del proyecto: T* (con unidad de tiempo).
-- Ruta Crítica: secuencia exacta de actividades con Holgura = 0.`;
+- Ruta Crítica: secuencia exacta de actividades con Holgura = 0.
+
+6. ESTRUCTURA JSON OCULTA (OBLIGATORIA AL FINAL DEL TEXTO):
+Al final de todo el texto, incluye un bloque HTML oculto con el resumen JSON de las actividades para dibujar el lienzo vectorial:
+<!-- PERT_DATA:
+[
+  {"id": "A", "act": "A", "t": 3, "pred": [], "es": 0, "ef": 3, "ls": 0, "lf": 3, "h": 0, "crit": true},
+  ...
+]
+-->`;
   } else if (type === "arbol" || consigna.toLowerCase().includes("árbol") || consigna.toLowerCase().includes("probabilidades") || consigna.toLowerCase().includes("estudio de mercado")) {
     typeInstruction = `
 TIPO DE PROBLEMA: TEORÍA DE LA DECISIÓN / ÁRBOLES DE DECISIÓN.
