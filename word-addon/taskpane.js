@@ -938,43 +938,45 @@ ESTRUCTURA OBLIGATORIA DEL DESARROLLO (Paso a Paso):
   } else if (type === "pert" || consigna.toLowerCase().includes("red") || consigna.toLowerCase().includes("camino crítico") || consigna.toLowerCase().includes("holgura")) {
     typeInstruction = `
 TIPO DE PROBLEMA: DIAGRAMA DE REDES / PERT - CPM.
-DEBES GENERAR EXACTAMENTE LAS SIGUIENTES SECCIONES Y TABLAS PARA MICROSOFT WORD:
+DEBES RESOLVER EL PROBLEMA SIGUIENDO ESTRICTAMENTE ESTE ORDEN DE RAZONAMIENTO MATEMÁTICO:
 
-1. TABLA MAESTRA DE ACTIVIDADES Y HOLGURAS (TABLA CUADRADA DE 9 COLUMNAS):
-Genera obligatoriamente la tabla con esta estructura exacta de 9 columnas, verificando cada cálculo aritmético celda por celda:
-| Actividad | Predecesora | Duración (t) | Inicio Temprano (ES) | Fin Temprano (EF) | Inicio Tardío (LS) | Fin Tardío (LF) | Holgura Total (H = LF - EF) | ¿Crítica? |
-| :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
-(REGLA UNIVERSAL ESTRICTA: Para TODAS las actividades terminales F, M, N, P sin sucesoras, su Fin Tardío es IGUAL al tiempo máximo T* del proyecto: LF = T*. Ninguna actividad terminal puede tener LF diferente a T*).
+1. PASO HACIA ADELANTE (FORWARD PASS) - TIEMPOS TEMPRANOS:
+Calcula para cada actividad su Inicio Temprano (ES) y Fin Temprano (EF = ES + t):
+- Para actividades iniciales (sin predecesores): ES = 0.
+- Para actividades con predecesoras: ES = max(EF de todas sus predecesoras directas).
+Muestra explícitamente cada ecuación y resultado aritmético paso a paso (ej: "ES(C) = EF(A) = 6 ➔ EF(C) = 6 + 2 = 8 meses").
 
-2. ANÁLISIS COMPARATIVO DE RUTAS DE LA RED (TABLA DE WORD):
-Genera obligatoriamente una tabla formal de Word con la comparación de todas las rutas posibles desde (INICIO) hasta (FIN):
+2. TIEMPO MÍNIMO DEL PROYECTO (T*):
+Identifica todas las actividades terminales (aquellas que NO tienen sucesoras directas, es decir: F, M, N, P).
+Calcula formalmente el tiempo total del proyecto: T* = max(EF de todas las terminales). Muestra la comparación: max(EF(F), EF(M), EF(N), EF(P)).
+
+3. PASO HACIA ATRÁS (BACKWARD PASS) - TIEMPOS TARDÍOS:
+(REGLA UNIVERSAL ESTRICTA: Para TODAS las actividades terminales F, M, N, P, su Fin Tardío es IGUAL a T*: LF = T*. Ninguna terminal puede tener LF distinto a T*).
+Calcula para cada actividad su Fin Tardío (LF) e Inicio Tardío (LS = LF - t):
+- Para actividades con sucesoras: LF = min(LS de todas sus sucesoras directas).
+Muestra explícitamente cada cálculo hacia atrás.
+
+4. CÁLCULO DE HOLGURAS TOTALES Y DETERMINACIÓN DEL CAMINO CRÍTICO:
+- Calcula para cada actividad la Holgura Total: h = LS - ES = LF - EF.
+- Identifica las actividades críticas con holgura nula (h = 0).
+- Define la secuencia exacta del Camino Crítico principal.
+
+5. ANÁLISIS COMPARATIVO DE RUTAS DE LA RED (TABLA DE WORD):
+Genera obligatoriamente una tabla formal de Word con la comparación de todas las rutas posibles desde INICIO hasta FIN:
 | Ruta | Secuencia de la Ruta | Operación de Duración | Duración Total | ¿Es Ruta Crítica? |
 | :---: | :--- | :---: | :---: | :---: |
 (Enumera cada ruta y resalta en negrita la ruta con mayor duración: T*).
 
-3. MEMORIA DE CÁLCULO Y REGLAS DE TIEMPOS TEMPRANOS Y TARDÍOS (SIN CÓDIGO NI LATEX):
-CERO signos de dólar $, CERO comandos LaTeX como \\implies o \\text{}.
-Escribe las ecuaciones y reglas en texto limpio y natural para Word:
-- Paso hacia adelante (Forward Pass):
-  * ES = 0 para actividades iniciales.
-  * EF = ES + t.
-  * ES = max(EF de predecesoras) para convergencias.
-  * Tiempo mínimo del proyecto: T* = max(EF de terminales).
-- Paso hacia atrás (Backward Pass):
-  * Para terminales: LF = T*.
-  * LS = LF - t.
-  * LF = min(LS de sucesoras directas) para bifurcaciones.
-  * Holguras: H = LF - EF = LS - ES.
+6. TABLA MAESTRA DE ACTIVIDADES Y HOLGURAS (TABLA CUADRADA DE 9 COLUMNAS):
+Vuelca los resultados matemáticos calculados anteriormente en la tabla final con bordes:
+| Actividad | Predecesora | Duración (t) | Inicio Temprano (ES) | Fin Temprano (EF) | Inicio Tardío (LS) | Fin Tardío (LF) | Holgura Total (H = LF - EF) | ¿Crítica? |
+| :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
 
-4. CAMINO CRÍTICO Y CONCLUSIONES:
-- Duración mínima de realización del proyecto: T* (con unidad de tiempo).
-- Ruta Crítica: secuencia exacta de actividades con Holgura = 0.
-
-5. ESTRUCTURA JSON OCULTA (OBLIGATORIA AL FINAL DEL TEXTO):
+7. ESTRUCTURA JSON OCULTA (OBLIGATORIA AL FINAL DEL TEXTO):
 Al final de todo el texto, incluye un bloque HTML oculto con el resumen JSON de las actividades para alimentar el generador vectorial del dibujo:
 <!-- PERT_DATA:
 [
-  {"id": "A", "act": "A", "t": 3, "pred": [], "es": 0, "ef": 3, "ls": 0, "lf": 3, "h": 0, "crit": true},
+  {"id": "A", "act": "A", "t": 6, "pred": [], "es": 0, "ef": 6, "ls": 0, "lf": 6, "h": 0, "crit": true},
   ...
 ]
 -->`;
@@ -1032,7 +1034,7 @@ ${consigna}`;
 
 // Call Google Gemini API (Single prompt or Multi-turn History)
 async function callGeminiAPI(promptOrContents, apiKey) {
-  const models = ["gemini-3.5-flash", "gemini-3.5-flash-lite", "gemini-flash-lite-latest", "gemini-flash-latest"];
+  const models = ["gemini-3.5-flash", "gemini-3.5-flash-lite", "gemini-flash-latest"];
   let lastError = null;
 
   const contentsPayload = Array.isArray(promptOrContents)
@@ -1051,7 +1053,7 @@ async function callGeminiAPI(promptOrContents, apiKey) {
         body: JSON.stringify({
           contents: contentsPayload,
           generationConfig: {
-            temperature: 0.15,
+            temperature: 0.0,
             maxOutputTokens: 8192,
           },
         }),
