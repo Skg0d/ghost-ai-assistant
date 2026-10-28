@@ -313,6 +313,247 @@ btnCopyClipboard.addEventListener("click", () => {
   });
 });
 
+// ==========================================
+// Test Drawing Generator (Vector Word Canvas)
+// ==========================================
+function generatePertOoxml(nodes, edges) {
+  const nodeW = 733963;
+  const boxW = 366982;
+  const boxH = 301307;
+  const hH = 250000;
+
+  let maxX = 0;
+  let maxY = 0;
+  nodes.forEach(n => {
+    if (n.x + nodeW > maxX) maxX = n.x + nodeW;
+    if (n.y + boxH * 3 + hH > maxY) maxY = n.y + boxH * 3 + hH;
+  });
+  maxX += 200000;
+  maxY += 200000;
+
+  let shapeCounter = 1000;
+  const shapesXml = [];
+  const nodeMidShapeIds = {};
+
+  function makeTextbox(shapeId, x, y, cx, cy, text, isBorderless, isBold) {
+    const lnXml = isBorderless
+      ? '<a:ln><a:noFill/></a:ln>'
+      : '<a:ln w="12700"><a:solidFill><a:srgbClr val="000000"/></a:solidFill></a:ln>';
+    const bAttr = isBold ? '<w:b/>' : '';
+
+    return `
+      <wps:wsp>
+        <wps:cNvPr id="${shapeId}" name="Box ${shapeId}"/>
+        <wps:cNvSpPr/>
+        <wps:spPr>
+          <a:xfrm>
+            <a:off x="${x}" y="${y}"/>
+            <a:ext cx="${cx}" cy="${cy}"/>
+          </a:xfrm>
+          <a:prstGeom prst="rect"><a:avLst/></a:prstGeom>
+          <a:solidFill><a:schemeClr val="lt1"/></a:solidFill>
+          ${lnXml}
+        </wps:spPr>
+        <wps:txbx>
+          <w:txbxContent>
+            <w:p>
+              <w:pPr>
+                <w:jc w:val="center"/>
+                <w:spacing w:line="220" w:lineRule="auto" w:before="0" w:after="0"/>
+                <w:rPr>
+                  <w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/>
+                  <w:sz w:val="18"/>
+                  ${bAttr}
+                </w:rPr>
+              </w:pPr>
+              <w:r>
+                <w:rPr>
+                  <w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/>
+                  <w:sz w:val="18"/>
+                  ${bAttr}
+                </w:rPr>
+                <w:t>${text}</w:t>
+              </w:r>
+            </w:p>
+          </w:txbxContent>
+        </wps:txbx>
+        <wps:bodyPr anchor="ctr" lIns="10000" rIns="10000" tIns="10000" bIns="10000"/>
+      </wps:wsp>
+    `;
+  }
+
+  nodes.forEach(n => {
+    const nx = n.x;
+    const ny = n.y;
+
+    const sEs = shapeCounter++;
+    shapesXml.push(makeTextbox(sEs, nx, ny, boxW, boxH, String(n.es)));
+
+    const sEf = shapeCounter++;
+    shapesXml.push(makeTextbox(sEf, nx + boxW, ny, boxW, boxH, String(n.ef)));
+
+    const sMid = shapeCounter++;
+    nodeMidShapeIds[n.id] = sMid;
+    const actLabel = (n.t !== undefined && n.t !== null) ? `${n.act} (t=${n.t})` : n.act;
+    shapesXml.push(makeTextbox(sMid, nx, ny + boxH, nodeW, boxH, actLabel, false, true));
+
+    const sLs = shapeCounter++;
+    shapesXml.push(makeTextbox(sLs, nx, ny + boxH * 2, boxW, boxH, String(n.ls)));
+
+    const sLf = shapeCounter++;
+    shapesXml.push(makeTextbox(sLf, nx + boxW, ny + boxH * 2, boxW, boxH, String(n.lf)));
+
+    const sH = shapeCounter++;
+    const hX = nx + Math.floor((nodeW - 454122) / 2);
+    shapesXml.push(makeTextbox(sH, hX, ny + boxH * 3, 454122, hH, `h=${n.h}`, true, false));
+  });
+
+  edges.forEach(([src, dst]) => {
+    const srcId = nodeMidShapeIds[src];
+    const dstId = nodeMidShapeIds[dst];
+    const srcNode = nodes.find(n => n.id === src);
+    const dstNode = nodes.find(n => n.id === dst);
+    if (!srcNode || !dstNode) return;
+
+    const x1 = srcNode.x + nodeW;
+    const y1 = srcNode.y + boxH + Math.floor(boxH / 2);
+    const x2 = dstNode.x;
+    const y2 = dstNode.y + boxH + Math.floor(boxH / 2);
+
+    const cx = x2 - x1;
+    const cy = y2 - y1;
+    const connId = shapeCounter++;
+
+    shapesXml.push(`
+      <wps:wsp>
+        <wps:cNvPr id="${connId}" name="Flecha ${connId}"/>
+        <wps:cNvCnPr>
+          <a:stCxn id="${srcId}" idx="3"/>
+          <a:endCxn id="${dstId}" idx="1"/>
+        </wps:cNvCnPr>
+        <wps:spPr>
+          <a:xfrm>
+            <a:off x="${x1}" y="${y1}"/>
+            <a:ext cx="${cx}" cy="${cy}"/>
+          </a:xfrm>
+          <a:prstGeom prst="straightConnector1"><a:avLst/></a:prstGeom>
+          <a:ln w="15000">
+            <a:solidFill><a:srgbClr val="000000"/></a:solidFill>
+            <a:tailEnd type="triangle" w="med" len="med"/>
+          </a:ln>
+        </wps:spPr>
+        <wps:bodyPr/>
+      </wps:wsp>
+    `);
+  });
+
+  const drawingXml = `
+    <w:drawing xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"
+      xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing"
+      xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"
+      xmlns:wpg="http://schemas.microsoft.com/office/word/2010/wordprocessingGroup"
+      xmlns:wps="http://schemas.microsoft.com/office/word/2010/wordprocessingShape">
+      <wp:inline>
+        <wp:extent cx="${maxX}" cy="${maxY}"/>
+        <wp:effectExtent l="0" t="0" r="0" b="0"/>
+        <wp:docPr id="1000" name="Lienzo PERT"/>
+        <wp:cNvGraphicFramePr>
+          <a:graphicFrameLocks/>
+        </wp:cNvGraphicFramePr>
+        <a:graphic>
+          <a:graphicData uri="http://schemas.microsoft.com/office/word/2010/wordprocessingGroup">
+            <wpg:wgp>
+              <wpg:cNvGrpSpPr/>
+              <wpg:grpSpPr>
+                <a:xfrm>
+                  <a:off x="0" y="0"/>
+                  <a:ext cx="${maxX}" cy="${maxY}"/>
+                  <a:chOff x="0" y="0"/>
+                  <a:chExt cx="${maxX}" cy="${maxY}"/>
+                </a:xfrm>
+              </wpg:grpSpPr>
+              ${shapesXml.join("")}
+            </wpg:wgp>
+          </a:graphicData>
+        </a:graphic>
+      </wp:inline>
+    </w:drawing>
+  `;
+
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<?mso-application progid="Word.Document"?>
+<pkg:package xmlns:pkg="http://schemas.microsoft.com/office/2006/xmlPackage">
+  <pkg:part pkg:name="/_rels/.rels" pkg:contentType="application/vnd.openxmlformats-package.relationships+xml" pkg:padding="512">
+    <pkg:xmlData>
+      <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+        <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>
+      </Relationships>
+    </pkg:xmlData>
+  </pkg:part>
+  <pkg:part pkg:name="/word/document.xml" pkg:contentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml">
+    <pkg:xmlData>
+      <w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"
+                  xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing"
+                  xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"
+                  xmlns:wpg="http://schemas.microsoft.com/office/word/2010/wordprocessingGroup"
+                  xmlns:wps="http://schemas.microsoft.com/office/word/2010/wordprocessingShape">
+        <w:body>
+          <w:p>
+            <w:r>
+              ${drawingXml}
+            </w:r>
+          </w:p>
+        </w:body>
+      </w:document>
+    </pkg:xmlData>
+  </pkg:part>
+</pkg:package>`;
+}
+
+const btnTestDrawing = document.getElementById("btn-test-drawing");
+if (btnTestDrawing) {
+  btnTestDrawing.addEventListener("click", async () => {
+    try {
+      const sampleNodes = [
+        { id: 'INICIO', act: 'INICIO', t: 0, es: 0, ef: 0, ls: 0, lf: 0, h: 0, x: 0, y: 150000 },
+        { id: 'A', act: 'A', t: 3, es: 0, ef: 3, ls: 0, lf: 3, h: 0, x: 1400000, y: 150000 },
+        { id: 'C', act: 'C', t: 1, es: 3, ef: 4, ls: 3, lf: 4, h: 0, x: 2800000, y: 150000 }
+      ];
+      const sampleEdges = [
+        ['INICIO', 'A'],
+        ['A', 'C']
+      ];
+      const opcXml = generatePertOoxml(sampleNodes, sampleEdges);
+
+      if (typeof Word !== "undefined" && Word.run) {
+        await Word.run(async (context) => {
+          const selection = context.document.getSelection();
+          selection.insertOoxml(opcXml, Word.InsertLocation.replace);
+          await context.sync();
+        });
+        alert("¡Éxito! Lienzo de dibujo con 3 nodos y flechas insertado en tu Word. Haz clic sobre él en Word para comprobar si se activa el editor de dibujo.");
+        return;
+      }
+
+      if (typeof Office !== "undefined" && Office.context && Office.context.document) {
+        Office.context.document.setSelectedDataAsync(opcXml, { coercionType: Office.CoercionType.Ooxml }, (result) => {
+          if (result.status === Office.AsyncResultStatus.Succeeded) {
+            alert("¡Éxito! Lienzo de dibujo insertado en Word.");
+          } else {
+            alert("Error al insertar OOXML: " + result.error.message);
+          }
+        });
+        return;
+      }
+
+      alert("Abre el complemento dentro de Word Online para probar la inserción.");
+    } catch (err) {
+      console.error("Test drawing insertion failed:", err);
+      alert("Error de Word al insertar dibujo OOXML: " + (err.message || err));
+    }
+  });
+}
+
 // Solve exercise
 btnSolve.addEventListener("click", async () => {
   const query = promptInput.value.trim();
