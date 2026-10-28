@@ -37,6 +37,8 @@ const btnTurnNext = document.getElementById("btn-turn-next");
 const turnBadge = document.getElementById("turn-badge");
 const turnUserBox = document.getElementById("turn-user-box");
 const turnUserText = document.getElementById("turn-user-text");
+const modelBadge = document.getElementById("model-badge");
+const cardModelFooter = document.getElementById("card-model-footer");
 
 // Toast Feedback Notification
 const toastEl = document.getElementById("toast");
@@ -913,6 +915,15 @@ function showTurn(idx) {
     }
   }
 
+  // 9. Update model indicator in header and card footer
+  const modelUsed = turn.modelUsed || "gemini-3.8-flash";
+  if (modelBadge) {
+    modelBadge.textContent = modelUsed;
+  }
+  if (cardModelFooter) {
+    cardModelFooter.textContent = "⚡ Modelo: " + modelUsed;
+  }
+
   resultContainer.style.display = "flex";
 }
 
@@ -979,7 +990,10 @@ REGLAS DE FORMATO:
   resultContainer.style.display = "none";
 
   try {
-    const responseText = await callGeminiAPI(chatHistory, apiKey);
+    const apiResult = await callGeminiAPI(chatHistory, apiKey);
+    const responseText = typeof apiResult === "object" ? apiResult.text : apiResult;
+    const modelUsed = (typeof apiResult === "object" && apiResult.model) ? apiResult.model : "gemini-3.8-flash";
+
     chatHistory.push({ role: "model", parts: [{ text: responseText }] });
 
     // Switch UI to multi-turn mode
@@ -1006,13 +1020,14 @@ REGLAS DE FORMATO:
       renderedHtml = prepareWordHtml(responseText);
     }
 
-    // Record turn
+    // Record turn with model metadata
     const newTurn = {
       index: chatTurns.length,
       query: query,
       responseMarkdown: responseText,
       renderedHtml: renderedHtml,
       pertOoxml: turnPertOoxml,
+      modelUsed: modelUsed,
     };
     chatTurns.push(newTurn);
 
@@ -1343,7 +1358,7 @@ async function callGeminiAPI(promptOrContents, apiKey) {
       }
 
       const text = data.candidates?.[0]?.content?.parts?.map(p => p.text).filter(Boolean).join("\n\n");
-      if (text) return text;
+      if (text) return { text, model };
     } catch (err) {
       lastError = err.message;
     }
