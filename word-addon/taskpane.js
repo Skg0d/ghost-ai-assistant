@@ -1799,39 +1799,45 @@ function buildOperationalResearchPrompt(consigna, selectedType) {
 
   if (resolvedType === "simplex") {
     typeInstruction = `
-TIPO DE PROBLEMA: PROGRAMACIÓN LINEAL / MÉTODO SIMPLEX (REGLAS ESTRICTAS DE CÁTEDRA).
+TIPO DE PROBLEMA: PROGRAMACIÓN LINEAL / MÉTODO SIMPLEX (REGLAS ESTRICTAS DE CÁTEDRA DE FEDE).
 
 DIRECTIVAS METODOLÓGICAS OBLIGATORIAS:
 1. RESTRICCIÓN EXPRESA DE CÁTEDRA (PROHIBICIÓN ABSOLUTA):
    - TERMINANTEMENTE PROHIBIDO usar o mencionar Variables Artificiales, Método Gran M (M) o Método de las Dos Fases.
    - En restricciones con '>=', NUNCA inventes variables artificiales ni penalizaciones con M.
-2. CONVENCIÓN CANÓNICA DE LA CÁTEDRA:
-   - Función Objetivo: Expresar en forma canónica de fila: Z - c^T X = 0 (o maximizar W = -D si se busca minimizar).
-   - Restricciones '<=': Sumar una variable de holgura (+S_i >= 0).
-   - Restricciones '>=': MULTIPLICAR TODA LA DESIGUALDAD POR -1, invertir el sentido a '<=' y agregar una variable de holgura (+S_i).
-     Ejemplo formal de cátedra: 2X1 + 3X2 >= 12 pasa canónicamente a: -2X1 - 3X2 + S1 = -12.
-     (ESTRICTAMENTE PROHIBIDO usar atajos como Y = X - 10 o variables desplazadas inventadas).
+2. CONVENCIÓN CANÓNICA Y TRANSFORMACIÓN DE COTAS INFERIORES (MÉTODO OFICIAL DE FEDE):
+   - COTAS INFERIORES SIMPLES (TÉCNICA DE FEDE PARA DISPONER DE BASE INICIAL VÁLIDA):
+     Si el problema contiene una restricción de cota mínima del tipo X_j >= k (ejemplo: 'ofrecer al menos 10 asientos para no fumadores' -> y >= 10):
+     * APLICAR OBLIGATORIAMENTE la sustitución de cota inferior de Fede: escribir X_j = k + t_j (con t_j >= 0, donde k son las unidades mínimas obligatorias y t_j representa las unidades adicionales).
+     * Sustituir en las restricciones: las desigualdades se transforman en '<=' con lados derechos reducidos pero estrictamente positivos (ej: x + (10 + t) <= 90  =>  x + t <= 80; 2x + 5(10 + t) <= 300  =>  2x + 5t <= 250).
+     * Sustituir en la función objetivo: Z = 10x + 6(10 + t) = 10x + 6t + 60. Maximizar W = 10x + 6t y al final recuperar Z = W + 60 (expresado en miles de pesos o pesos directos).
+     * Esta sustitución evita completamente variables artificiales y garantiza que el modelo transformado sea DIRECTAMENTE FACTIBLE PRIMAL, resolviéndose en 1 sola iteración de Simplex Primal puro sin necesidad de Simplex Dual.
+   - FORMA ESTÁNDAR DE LAS RESTRICCIONES '<=':
+     Agregar una variable de holgura (+S_i >= 0): ej. x + t + S1 = 80; 2x + 5t + S2 = 250.
+   - RESTRICCIONES '>=' GENERALES COMPLEJAS (cuando no sean cotas simples de una sola variable):
+     Multiplicar toda la desigualdad por -1, invertir a '<=' y agregar variable de holgura (+S_i): ej. -2X1 - 3X2 + S1 = -12, y resolver con Simplex Dual.
+   - FUNCIÓN OBJETIVO:
+     Forma canónica de fila: W - 10x - 6t = 0 (o Z - c^T X = 0).
 3. SELECCIÓN RIGUROSA DEL ALGORITMO (PRIMAL O DUAL):
-   - Si la solución de alguna fila de restricción es NEGATIVA (Lado Derecho < 0): APLICAR SIMPLEX DUAL.
-     * Fila Saliente (Fila Pivote): La fila con la Solución más negativa.
-     * Columna Entrante (Columna Pivote): Entre las columnas con coeficientes estrictamente negativos en esa fila saliente (a_rj < 0), calcular el cociente q_j = C_j / (-a_rj) donde C_j es el coeficiente en la fila Z. Elegir la columna con el MENOR cociente no negativo.
-   - Si todas las soluciones son no negativas (>= 0) y hay coeficientes negativos en la fila Z: APLICAR SIMPLEX PRIMAL.
-     * Columna Entrante: Variable con el coeficiente más negativo en la fila Z.
-     * Fila Saliente: Fila con el menor cociente no negativo (Solución / a_ik con a_ik > 0).
+   - Si la transformación de cota inferior dejó todos los lados derechos >= 0: APLICAR DIRECTAMENTE SIMPLEX PRIMAL.
+     * Columna Entrante (Columna Pivote): Variable con el coeficiente más negativo en la fila objetivo (W o Z).
+     * Fila Saliente (Fila Pivote): Menor cociente no negativo (Solución / a_ik con a_ik > 0).
+   - Si por restricciones '>=' complejas existe alguna Solución < 0: APLICAR SIMPLEX DUAL.
+     * Fila Saliente: La fila con la Solución más negativa.
+     * Columna Entrante: Entre columnas con a_rj < 0, calcular q_j = C_j / (-a_rj) y elegir el menor cociente no negativo.
 4. OPERACIONES VECTORIALES DE GAUSS-JORDAN OBLIGATORIAS:
    Para cada fila nueva de la siguiente tabla, mostrar explícitamente el desarrollo vectorial completo:
    F'_r = F_r / p
    F'_i = F_i - a_ik * F'_r
-   Ejemplo de formato:
-   F'_2 = (20, 50, 0, 1, 0 | 3000) - 50(0, 1, 0, 0, -1 | 10) = (20, 0, 0, 1, 50 | 2500)
+   (Mostrar los vectores anteriores, la operación numérica de resta/suma y el vector resultante).
 5. TABLAS SIMPLEX PASO A PASO (Formato de tabla Markdown con bordes):
-   - Columnas: | Base | X1 | X2 ... | S1 | S2 ... | Solución | Cociente |
-   - Fila Z integrada canónicamente en la tabla.
+   - Columnas: | Base | x | t | S1 | S2 ... | Solución | Cociente |
+   - Fila objetivo (W o Z) integrada canónicamente en la tabla.
    - REGLA DE COCIENTES: La columna "Cociente" SOLO se calcula en iteraciones donde se va a pivotear. EN LA TABLA FINAL ÓPTIMA ESTÁ PROHIBIDO CALCULAR COCIENTES (dejar guiones o vacía).
 6. SOLUCIÓN ÓPTIMA E INTERPRETACIÓN ECONÓMICA:
-   - Detalle de valores óptimos (variables básicas en la columna Solución, no básicas en 0).
-   - Valor de Z* con unidades monetarias.
-   - Verificación en las restricciones originales y detalle de holguras con unidades físicas.`;
+   - Recuperación de variables originales si se usó sustitución: ej. t = 0  =>  y = 10 + 0 = 10 asientos no fumadores; x = 80 asientos fumadores.
+   - Recuperación del beneficio real: ej. Z = W + 60 = 800 + 60 = 860 (miles de pesos) = 860.000 pesos.
+   - Verificación estricta en las restricciones originales (capacidad de asientos, capacidad de equipaje en kg, cumplimiento de política) y análisis de holguras con unidades físicas.`;
   } else if (resolvedType === "pert") {
     typeInstruction = `
 TIPO DE PROBLEMA: DIAGRAMA DE REDES / PERT - CPM.
