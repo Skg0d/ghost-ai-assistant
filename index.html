@@ -1082,6 +1082,8 @@
     <button id="send-btn" title="Enviar">-></button>
   </div>
 
+  <!-- Scripts -->
+  <script src="marked.min.js"></script>
   <script>
     const chat = document.getElementById("chat");
     const input = document.getElementById("prompt-input");
@@ -1861,7 +1863,9 @@
       const el = document.createElement("div");
       el.className = `msg ${type}`;
       if (type === "ai" || type === "hint") {
-        if (window.ghostAPI && typeof window.ghostAPI.renderMarkdown === "function") {
+        if (typeof marked !== "undefined" && marked.parse) {
+          el.innerHTML = marked.parse(text || "");
+        } else if (window.ghostAPI && typeof window.ghostAPI.renderMarkdown === "function") {
           el.innerHTML = window.ghostAPI.renderMarkdown(text);
         } else {
           el.textContent = text;
