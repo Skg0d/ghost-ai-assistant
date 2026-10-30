@@ -40,47 +40,61 @@ function createWindow() {
   });
 }
 
-app.whenReady().then(() => {
-  log("app.whenReady");
-  createWindow();
-
-  // Start Antigravity Bridge Server for Remote Web & Word Sync
-  try {
-    createBridgeServer(7777);
-    log("Antigravity Bridge server initialized on port 7777");
-  } catch (err) {
-    log("Bridge server init error: " + err.message);
-  }
-
-  // Ctrl+Shift+H: Toggle show/hide
-  globalShortcut.register("Ctrl+Shift+H", () => {
-    if (!mainWindow) return;
-    if (mainWindow.isVisible()) {
-      mainWindow.hide();
-    } else {
-      mainWindow.show();
-    }
-  });
-
-  // Ctrl+Shift+A: Ask clipboard directly and sync with remote
-  globalShortcut.register("Ctrl+Shift+A", () => {
+// Ensure single instance to prevent Chromium cache collision (Acceso denegado 0x5)
+const gotTheLock = app.requestSingleInstanceLock();
+if (!gotTheLock) {
+  log("Another instance of Ghost AI is already running. Exiting.");
+  app.quit();
+} else {
+  app.on("second-instance", () => {
     if (mainWindow) {
-      mainWindow.webContents.send("ask-clipboard");
+      if (!mainWindow.isVisible()) mainWindow.show();
+      mainWindow.focus();
     }
-    try {
-      const text = clipboard.readText();
-      if (text) {
-        broadcastSSE("query", { prompt: text, timestamp: Date.now() });
-      }
-    } catch (e) {}
   });
 
-  // Ctrl+Shift+Space: Toggle typing focus
-  globalShortcut.register("Ctrl+Shift+Space", () => {
-    if (!mainWindow) return;
-    toggleFocusMode();
+  app.whenReady().then(() => {
+    log("app.whenReady");
+    createWindow();
+
+    // Start Antigravity Bridge Server for Remote Web & Word Sync
+    try {
+      createBridgeServer(7777);
+      log("Antigravity Bridge server initialized on port 7777");
+    } catch (err) {
+      log("Bridge server init error: " + err.message);
+    }
+
+    // Ctrl+Shift+H: Toggle show/hide
+    globalShortcut.register("Ctrl+Shift+H", () => {
+      if (!mainWindow) return;
+      if (mainWindow.isVisible()) {
+        mainWindow.hide();
+      } else {
+        mainWindow.show();
+      }
+    });
+
+    // Ctrl+Shift+A: Ask clipboard directly and sync with remote
+    globalShortcut.register("Ctrl+Shift+A", () => {
+      if (mainWindow) {
+        mainWindow.webContents.send("ask-clipboard");
+      }
+      try {
+        const text = clipboard.readText();
+        if (text) {
+          broadcastSSE("query", { prompt: text, timestamp: Date.now() });
+        }
+      } catch (e) {}
+    });
+
+    // Ctrl+Shift+Space: Toggle typing focus
+    globalShortcut.register("Ctrl+Shift+Space", () => {
+      if (!mainWindow) return;
+      toggleFocusMode();
+    });
   });
-});
+}
 
 ipcMain.handle("get-remote-info", () => {
   const ips = getLocalIps();

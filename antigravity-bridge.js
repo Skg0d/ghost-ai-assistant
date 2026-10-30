@@ -336,16 +336,17 @@ print(json.dumps({"docx": out_docx, "pdf": pdf_path, "url": url}))
 
   server.on("error", (err) => {
     if (err.code === "EADDRINUSE") {
-      console.log(`Port ${port} in use, trying ${port + 1}...`);
-      activePort = port + 1;
-      server.listen(activePort);
+      console.log(`Port ${activePort} in use, trying ${activePort + 1}...`);
+      activePort = activePort + 1;
+      setTimeout(() => server.listen(activePort), 300);
     } else {
       console.error("Bridge Server error:", err);
     }
   });
 
   server.listen(port, () => {
-    activePort = port;
+    const addr = server.address();
+    activePort = addr ? addr.port : port;
     const ips = getLocalIps();
     console.log(`\n======================================================`);
     console.log(`👻 GHOST ANTIGRAVITY BRIDGE SERVER ACTIVO`);
