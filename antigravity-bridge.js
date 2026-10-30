@@ -137,7 +137,7 @@ function callAgyCli(promptText, modelName = null, options = {}) {
   return new Promise((resolve, reject) => {
     const ws = options.workspace || "c:/Users/ariel/testeos";
     const buildArgs = (includeConversation = true) => {
-      const args = ["--app_data_dir=antigravity"];
+      const args = ["--app_data_dir=antigravity", "--dangerously-skip-permissions"];
       if (ws) args.push(`--add-dir=${ws}`);
       if (includeConversation && options.conversationId) {
         args.push(`--conversation=${options.conversationId}`);
