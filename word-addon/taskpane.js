@@ -54,17 +54,46 @@ const btnCloudDownload = document.getElementById("btn-cloud-download");
 let isBridgeOnline = false;
 let remoteNetworkUrl = "http://localhost:7777/remote";
 
+const STORAGE_WORD_HOST_MODE = "ghost_word_host_mode";
+const STORAGE_WORD_REMOTE_HOST = "ghost_word_remote_host";
+
+function getWordHostMode() {
+  return localStorage.getItem(STORAGE_WORD_HOST_MODE) || "local";
+}
+
+function getWordRemoteHost() {
+  return localStorage.getItem(STORAGE_WORD_REMOTE_HOST) || "http://192.168.1.55:7777";
+}
+
+function getEffectiveBridgeUrl() {
+  const mode = getWordHostMode();
+  if (mode === "remote") {
+    let host = (getWordRemoteHost() || "").trim();
+    if (host.endsWith("/")) host = host.slice(0, -1);
+    return host || "http://192.168.1.55:7777";
+  }
+  return "http://localhost:7777";
+}
+
 async function checkBridgeStatus() {
+  const baseUrl = getEffectiveBridgeUrl();
   try {
-    const res = await fetch("http://localhost:7777/api/status");
+    const res = await fetch(`${baseUrl}/api/status`);
     const data = await res.json();
     if (data.ok) {
       isBridgeOnline = true;
-      if (bridgeStatusBadge) bridgeStatusBadge.style.display = "inline";
+      if (bridgeStatusBadge) {
+        bridgeStatusBadge.style.display = "inline";
+        const mode = getWordHostMode();
+        bridgeStatusBadge.textContent = mode === "remote" ? "📡 Remoto Online" : "● Antigravity Online";
+      }
       if (data.networkUrl) {
         remoteNetworkUrl = data.networkUrl;
         if (remoteUrlDisplay) remoteUrlDisplay.textContent = data.networkUrl;
       }
+    } else {
+      isBridgeOnline = false;
+      if (bridgeStatusBadge) bridgeStatusBadge.style.display = "none";
     }
   } catch (e) {
     isBridgeOnline = false;
@@ -221,13 +250,45 @@ const savedOpacity = localStorage.getItem(STORAGE_OPACITY) || "20";
 lastActiveOpacity = Math.max(20, parseInt(savedOpacity, 10) || 20);
 applyOpacity(lastActiveOpacity, true);
 
-// API Key Management
+// API Key & Host Management
 function getApiKey() {
   return localStorage.getItem(STORAGE_KEY) || "";
 }
 
+const wordRadioLocal = document.getElementById("word-radio-local");
+const wordRadioRemote = document.getElementById("word-radio-remote");
+const wordRemoteHostInput = document.getElementById("word-remote-host-input");
+
+function syncWordHostUI() {
+  const mode = getWordHostMode();
+  if (mode === "remote") {
+    if (wordRadioRemote) wordRadioRemote.checked = true;
+    if (wordRemoteHostInput) wordRemoteHostInput.style.display = "block";
+  } else {
+    if (wordRadioLocal) wordRadioLocal.checked = true;
+    if (wordRemoteHostInput) wordRemoteHostInput.style.display = "none";
+  }
+  if (wordRemoteHostInput) wordRemoteHostInput.value = getWordRemoteHost();
+}
+
+if (wordRadioLocal) {
+  wordRadioLocal.addEventListener("change", () => {
+    if (wordRemoteHostInput) wordRemoteHostInput.style.display = "none";
+  });
+}
+
+if (wordRadioRemote) {
+  wordRadioRemote.addEventListener("change", () => {
+    if (wordRemoteHostInput) {
+      wordRemoteHostInput.style.display = "block";
+      wordRemoteHostInput.focus();
+    }
+  });
+}
+
 btnSettings.addEventListener("click", () => {
   modalKeyInput.value = getApiKey();
+  syncWordHostUI();
   apiModal.classList.add("active");
   modalKeyInput.focus();
 });
@@ -243,8 +304,15 @@ btnModalSave.addEventListener("click", () => {
     return;
   }
   localStorage.setItem(STORAGE_KEY, val);
+
+  const mode = (wordRadioRemote && wordRadioRemote.checked) ? "remote" : "local";
+  const remoteHostVal = wordRemoteHostInput ? (wordRemoteHostInput.value.trim() || "http://192.168.1.55:7777") : "http://192.168.1.55:7777";
+  localStorage.setItem(STORAGE_WORD_HOST_MODE, mode);
+  localStorage.setItem(STORAGE_WORD_REMOTE_HOST, remoteHostVal);
+
   apiModal.classList.remove("active");
-  alert("API Key guardada con éxito.");
+  showToast(`✓ Ajustes guardados (${mode === "remote" ? "Remoto: " + remoteHostVal : "Local"})`);
+  checkBridgeStatus();
 });
 
 // Remote Modal Controls
@@ -283,8 +351,9 @@ if (btnCloudDownload) {
     }
 
     showToast("☁️ Generando enlace remoto...");
+    const baseUrl = getEffectiveBridgeUrl();
     try {
-      const res = await fetch("http://localhost:7777/api/export", {
+      const res = await fetch(`${baseUrl}/api/export`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -300,10 +369,10 @@ if (btnCloudDownload) {
         showToast("✅ Link copiado: " + data.url);
         window.open(data.url, "_blank");
       } else {
-        showToast("❌ No se pudo subir el archivo");
+        showToast("❌ No se pudo subir el archivo: " + (data.error || "Error"));
       }
     } catch (err) {
-      showToast("❌ Error con el puente: " + err.message);
+      showToast("❌ Error con el puente (" + baseUrl + "): " + err.message);
     }
   });
 }
@@ -1811,10 +1880,11 @@ REGLAS DE FORMATO:
     let apiResult = null;
     const selectedEngine = engineSelect ? engineSelect.value : "antigravity";
 
-    // If Antigravity Engine is selected and the local bridge is running, solve via bridge
+    // If Antigravity Engine is selected and the bridge is running, solve via bridge
     if (selectedEngine === "antigravity" && isBridgeOnline) {
+      const baseUrl = getEffectiveBridgeUrl();
       try {
-        const bridgeRes = await fetch("http://localhost:7777/api/solve", {
+        const bridgeRes = await fetch(`${baseUrl}/api/solve`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -1844,7 +1914,8 @@ REGLAS DE FORMATO:
 
     // Sync with remote mobile clients via bridge SSE
     if (isBridgeOnline) {
-      fetch("http://localhost:7777/api/broadcast", {
+      const baseUrl = getEffectiveBridgeUrl();
+      fetch(`${baseUrl}/api/broadcast`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
