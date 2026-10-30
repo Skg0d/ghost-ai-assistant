@@ -368,46 +368,16 @@ ipcMain.handle("ai-request", async (_event, { message, documents, userApiKey, hi
     broadcastSSE("query", { prompt: message, engine: engine || "gemini", timestamp: Date.now() });
   } catch (e) {}
 
-  // Build readable conversation history text
-  let historyText = "";
-  if (Array.isArray(history) && history.length > 0) {
-    historyText = history
-      .map((h) => `${h.role === "user" ? "Usuario" : "Antigravity"}: ${h.content}`)
-      .join("\n\n");
-  }
-
-  // Format multiple documents
+  // Format attached documents if any are loaded in UI
   let docsSection = "";
   if (docList.length > 0) {
     docsSection = docList.map((doc, idx) => {
-      return `=== DOCUMENTO DE REFERENCIA [${idx + 1}]: ${doc.name} ===\n${doc.content}\n=== FIN DOCUMENTO [${idx + 1}] ===`;
+      return `=== DOCUMENTO ADJUNTO [${idx + 1}]: ${doc.name} ===\n${doc.content}\n=== FIN DOCUMENTO [${idx + 1}] ===`;
     }).join("\n\n");
   }
 
-  let promptText = "";
-  if (docsSection) {
-    promptText = `OBJETIVO: Eres un asistente académico de excelencia para un examen universitario riguroso.
-Tu misión es ayudar al estudiante a responder con el nivel que exigen los profesores universitarios de ingeniería y sistemas.
-
-${docsSection}
-
-${historyText ? `=== HISTORIAL RECIENTE DE LA CONVERSACIÓN ===\n${historyText}\n=== FIN HISTORIAL ===\n\n` : ""}CRITERIOS OBLIGATORIOS DE EVALUACIÓN (DEBES CUMPLIR ESTOS 5 PUNTOS EN CADA RESPUESTA):
-1. DOMINIO CONCEPTUAL Y PRECISIÓN TÉCNICA: Emplea la terminología técnica formal y exacta de los documentos de referencia y de los autores citados (ej: Pressman, Sommerville, Kendall, etc.). No uses lenguaje vago ni coloquial.
-2. CAPACIDAD DE ANÁLISIS Y DESARROLLO ESTRUCTURADO: No te limites a definiciones telegráficas de 1 renglón. Desarrolla la respuesta con estructura lógica (introducción del concepto, componentes/etapas clave, y conclusión/impacto).
-3. CALIDAD Y PERTINENCIA DE EJEMPLOS: Cuando la pregunta lo requiera o ayude a consolidar el concepto, incluye un ejemplo práctico, concreto y relevante de ingeniería de software / sistemas reales.
-4. FUNDAMENTACIÓN Y JUSTIFICACIÓN TÉCNICA: Justifica el "por qué" de las decisiones de diseño, metodologías o arquitecturas elegidas basándote en la teoría de los documentos provistos.
-5. SÍNTESIS Y CRUCE DE DOCUMENTOS: Cruza la información de los documentos provistos. Si un concepto aparece desarrollado en uno y ejemplificado en otro, intégralos armónicamente.
-
-CONSULTA DEL EXAMEN A RESPONDER:
-${message}`;
-  } else {
-    promptText = `Eres Antigravity Ghost AI, un asistente de inteligencia artificial avanzado, programador experto y compañero de trabajo.
-Responde de forma directa, inteligente, natural, concisa y útil según lo que el usuario plantee.
-Mantén la continuidad con el historial de la conversación. No adoptes roles forzados ni redactes informes de prueba o exámenes a menos que el usuario te lo pida explícitamente.
-
-${historyText ? `=== HISTORIAL DE LA CONVERSACIÓN ===\n${historyText}\n=== FIN HISTORIAL ===\n\n` : ""}MENSAJE DEL USUARIO:
-${message}`;
-  }
+  // Clean, direct prompt without fake system wrappers or recursive prompt nesting
+  const cleanPrompt = docsSection ? `${docsSection}\n\n${message}` : message;
 
   // 1. Antigravity Exact Mathematical Solvers (Simplex Dual, PERT, etc.)
   if ((engine === "antigravity" || engine === "antigravity-solver") && /panan|simplex|dual|combustible|fumador/i.test(message)) {
@@ -444,7 +414,7 @@ ${message}`;
   if (!isDirectOnly) {
     try {
       log(`Calling Antigravity CLI (model: ${agyModel || 'Default Antigravity Engine'}, cid: ${conversationId || 'none'})`);
-      const cliResult = await callAgyCli(promptText, agyModel, {
+      const cliResult = await callAgyCli(cleanPrompt, agyModel, {
         conversationId: conversationId || undefined,
         workspace: (documents && documents[0] && documents[0].workspace) || "c:/Users/ariel/testeos"
       });
@@ -470,6 +440,37 @@ ${message}`;
   if (!apiKey) {
     return { error: "Falta configurar tu API Key. Hacé click en [API Key] arriba a la derecha para cargarla (es 100% gratis)." };
   }
+
+  // Build clean structured multi-turn conversation for Gemini API
+  const apiContents = [];
+  if (docsSection) {
+    apiContents.push({
+      role: "user",
+      parts: [{ text: `Documentos adjuntos de referencia:\n\n${docsSection}` }]
+    });
+    apiContents.push({
+      role: "model",
+      parts: [{ text: "Entendido, tengo los documentos como referencia." }]
+    });
+  }
+  if (Array.isArray(history) && history.length > 0) {
+    for (const h of history.slice(-8)) {
+      let cleanContent = h.content || "";
+      if (cleanContent.includes("MENSAJE DEL USUARIO:")) {
+        cleanContent = cleanContent.split("MENSAJE DEL USUARIO:").pop().trim();
+      }
+      if (cleanContent.trim()) {
+        apiContents.push({
+          role: h.role === "user" ? "user" : "model",
+          parts: [{ text: cleanContent }]
+        });
+      }
+    }
+  }
+  apiContents.push({
+    role: "user",
+    parts: [{ text: message }]
+  });
 
   let modelsToTry = [];
   let generationConfig = { temperature: 0.2, maxOutputTokens: 2048 };
@@ -505,7 +506,7 @@ ${message}`;
       const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
 
       let reqBody = {
-        contents: [{ parts: [{ text: promptText }] }],
+        contents: apiContents,
         generationConfig: generationConfig
       };
 
