@@ -176,9 +176,27 @@ def append_turn(cid, user_text, model_text):
 
     now_iso = datetime.now(timezone.utc).isoformat() + "Z"
 
+    # Find highest existing step_index
+    last_idx = -1
+    if os.path.exists(log_file):
+        try:
+            with open(log_file, "r", encoding="utf-8", errors="ignore") as f:
+                for line in f:
+                    line = line.strip()
+                    if line:
+                        try:
+                            data = json.loads(line)
+                            if "step_index" in data and isinstance(data["step_index"], int):
+                                if data["step_index"] > last_idx:
+                                    last_idx = data["step_index"]
+                        except Exception:
+                            pass
+        except Exception:
+            pass
+
     # Append user step
     user_step = {
-        "step_index": 0,
+        "step_index": last_idx + 1,
         "source": "USER_EXPLICIT",
         "type": "USER_INPUT",
         "status": "DONE",
@@ -188,7 +206,7 @@ def append_turn(cid, user_text, model_text):
 
     # Append model step
     model_step = {
-        "step_index": 1,
+        "step_index": last_idx + 2,
         "source": "MODEL",
         "type": "PLANNER_RESPONSE",
         "status": "DONE",

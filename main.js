@@ -341,31 +341,33 @@ ${message}`;
     return { text: pananMd, model: "antigravity-python" };
   }
 
-  // 2. Native Antigravity CLI Models (Claude Sonnet 4.6, Claude Opus 4.6, GPT-OSS 120B)
-  const agyModel = getAgyModelName(engine);
-  if (agyModel) {
+  // 2. Native Antigravity CLI Execution (Claude Sonnet, Claude Opus, GPT-OSS, Gemini 3.8 Flash HIGH, Antigravity)
+  const isDirectOnly = engine === "gemini-3.5-flash" || (typeof engine === "string" && engine.startsWith("direct-"));
+  const agyModel = getAgyModelName(engine); // null uses default Antigravity model
+
+  if (!isDirectOnly) {
     try {
-      log(`Calling Antigravity CLI model: ${agyModel}`);
-      const cliResult = await callAgyCli(promptText, agyModel);
+      log(`Calling Antigravity CLI (model: ${agyModel || 'Default Antigravity Engine'}, cid: ${conversationId || 'none'})`);
+      const cliResult = await callAgyCli(promptText, agyModel, {
+        conversationId: conversationId || undefined,
+        workspace: (documents && documents[0] && documents[0].workspace) || "c:/Users/ariel/testeos"
+      });
       if (cliResult) {
-        log(`Antigravity CLI model ${agyModel} succeeded! Length: ${cliResult.length}`);
+        log(`Antigravity CLI succeeded! Length: ${cliResult.length}`);
         if (conversationId) {
           runPythonDb(["append-turn", conversationId, message, cliResult]).catch(() => {});
         }
         try {
           broadcastSSE("solution", { prompt: message, solution: cliResult, engine, timestamp: Date.now() });
         } catch (e) {}
-        return { text: cliResult, model: agyModel };
+        return { text: cliResult, model: agyModel || "antigravity" };
       }
     } catch (cliErr) {
-      log(`Antigravity CLI error for ${agyModel}: ${cliErr.message}`);
-      return {
-        error: `Antigravity CLI (${agyModel}): ${cliErr.message}\n\nTip: Puedes alternar al modelo Gemini 3.8 Flash HIGH o Gemini 3.5 Flash en el menú superior para responder al instante.`
-      };
+      log(`Antigravity CLI error (${agyModel || 'antigravity'}): ${cliErr.message}, falling back to direct API...`);
     }
   }
 
-  // 3. Gemini Models (Gemini 3.8 Flash HIGH, Gemini 3.5 Flash, or Antigravity general questions)
+  // 3. Fallback or Direct (API Key) Gemini Models
   const apiKey = (userApiKey && userApiKey.trim()) ? userApiKey.trim() : "";
   if (!apiKey) {
     return { error: "Falta configurar tu API Key. Hacé click en [API Key] arriba a la derecha para cargarla (es 100% gratis)." };

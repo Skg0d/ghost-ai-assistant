@@ -132,26 +132,52 @@ function getAgyModelName(engine) {
   return null;
 }
 
-// Call Antigravity CLI binary non-interactively
-function callAgyCli(promptText, modelName = "Claude Sonnet 4.6 (Thinking)") {
+// Call Antigravity CLI binary non-interactively with full workspace, conversation, and app_data_dir
+function callAgyCli(promptText, modelName = null, options = {}) {
   return new Promise((resolve, reject) => {
-    execFile(
-      "agy.exe",
-      ["--print", promptText, "--model", modelName],
-      { timeout: 120000, maxBuffer: 10 * 1024 * 1024 },
-      (err, stdout, stderr) => {
-        const out = (stdout || "").trim();
-        const errStr = (stderr || "").trim();
-        if (out) return resolve(out);
-        if (err) {
-          if (/RESOURCE_EXHAUSTED|quota|429/i.test(errStr)) {
-            return reject(new Error(`Límite de cuota temporal alcanzado en Antigravity (${modelName}).`));
-          }
-          return reject(new Error(errStr || err.message || "Error al ejecutar Antigravity CLI"));
-        }
-        resolve(out || "Sin respuesta del modelo Antigravity.");
+    const ws = options.workspace || "c:/Users/ariel/testeos";
+    const buildArgs = (includeConversation = true) => {
+      const args = ["--app_data_dir=antigravity"];
+      if (ws) args.push(`--add-dir=${ws}`);
+      if (includeConversation && options.conversationId) {
+        args.push(`--conversation=${options.conversationId}`);
       }
-    );
+      if (modelName) {
+        args.push("--model", modelName);
+      }
+      args.push("--print", promptText);
+      return args;
+    };
+
+    const runCli = (cliArgs) => {
+      execFile(
+        "agy.exe",
+        cliArgs,
+        {
+          timeout: 120000,
+          maxBuffer: 10 * 1024 * 1024,
+          cwd: ws || process.cwd()
+        },
+        (err, stdout, stderr) => {
+          const out = (stdout || "").trim();
+          const errStr = (stderr || "").trim();
+          if (out) return resolve(out);
+          if (err) {
+            // If trajectory not found, retry once without --conversation
+            if (options.conversationId && cliArgs.some(a => a.startsWith("--conversation")) && /trajectory not found/i.test(errStr)) {
+              return runCli(buildArgs(false));
+            }
+            if (/RESOURCE_EXHAUSTED|quota|429/i.test(errStr)) {
+              return reject(new Error(`Límite de cuota temporal alcanzado en Antigravity (${modelName || 'Default'}).`));
+            }
+            return reject(new Error(errStr || err.message || "Error al ejecutar Antigravity CLI"));
+          }
+          resolve(out || "Sin respuesta del modelo Antigravity.");
+        }
+      );
+    };
+
+    runCli(buildArgs(true));
   });
 }
 
