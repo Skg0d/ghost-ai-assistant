@@ -42,7 +42,9 @@ function cleanSSEClients() {
 function runPythonDb(args) {
   return new Promise((resolve, reject) => {
     const scriptPath = path.join(__dirname, "solvers", "antigravity_db.py");
-    const py = spawn("python", [scriptPath, ...args]);
+    const py = spawn("python", [scriptPath, ...args], {
+      env: { ...process.env, PYTHONIOENCODING: "utf-8" }
+    });
     let stdout = "";
     let stderr = "";
     py.stdout.on("data", (chunk) => (stdout += chunk.toString("utf8")));
@@ -154,7 +156,7 @@ function callAgyCli(promptText, modelName = null, options = {}) {
         "agy.exe",
         cliArgs,
         {
-          timeout: 120000,
+          timeout: 300000,
           maxBuffer: 10 * 1024 * 1024,
           cwd: ws || process.cwd()
         },
@@ -172,7 +174,7 @@ function callAgyCli(promptText, modelName = null, options = {}) {
             }
             return reject(new Error(errStr || err.message || "Error al ejecutar Antigravity CLI"));
           }
-          if (out) return resolve(out);
+          if (out && !out.toLowerCase().includes("sin respuesta")) return resolve(out);
           return reject(new Error("Salida vacía de Antigravity CLI"));
         }
       );
@@ -510,7 +512,19 @@ print(json.dumps({"docx": out_docx, "pdf": pdf_path, "url": url}))
       return;
     }
 
-    // 6. Serve Remote Web App
+    // 6. Serve Static Files (KaTeX, Marked, Fonts, Index, Remote)
+    const mimeTypes = {
+      ".html": "text/html; charset=utf-8",
+      ".js": "application/javascript; charset=utf-8",
+      ".css": "text/css; charset=utf-8",
+      ".json": "application/json; charset=utf-8",
+      ".png": "image/png",
+      ".jpg": "image/jpeg",
+      ".woff": "font/woff",
+      ".woff2": "font/woff2",
+      ".ttf": "font/ttf"
+    };
+
     if (pathname === "/remote" || pathname === "/" || pathname === "/remote.html") {
       const htmlPath = path.join(__dirname, "public", "remote.html");
       if (fs.existsSync(htmlPath)) {
@@ -518,6 +532,26 @@ print(json.dumps({"docx": out_docx, "pdf": pdf_path, "url": url}))
         fs.createReadStream(htmlPath).pipe(res);
         return;
       }
+    }
+
+    if (pathname === "/index.html" || pathname === "/ghost" || pathname === "/app") {
+      const indexPath = path.join(__dirname, "index.html");
+      if (fs.existsSync(indexPath)) {
+        res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+        fs.createReadStream(indexPath).pipe(res);
+        return;
+      }
+    }
+
+    // Serve local root files (katex.min.js, katex.min.css, auto-render.min.js, marked.min.js) and fonts/
+    const safePath = path.normalize(pathname).replace(/^(\.\.[\/\\])+/, "");
+    const localFilePath = path.join(__dirname, safePath);
+    if (fs.existsSync(localFilePath) && fs.statSync(localFilePath).isFile()) {
+      const ext = path.extname(localFilePath).toLowerCase();
+      const contentType = mimeTypes[ext] || "application/octet-stream";
+      res.writeHead(200, { "Content-Type": contentType, "Cache-Control": "public, max-age=86400" });
+      fs.createReadStream(localFilePath).pipe(res);
+      return;
     }
 
     // Default 404

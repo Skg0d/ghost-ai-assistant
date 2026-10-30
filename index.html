@@ -1156,6 +1156,7 @@
 
   <!-- Scripts -->
   <script src="katex.min.js"></script>
+  <script src="auto-render.min.js"></script>
   <script src="marked.min.js"></script>
   <script>
     const chat = document.getElementById("chat");
@@ -1382,11 +1383,17 @@
       try {
         let projects = [];
         const isRemote = getSavedHostMode() === "remote";
-        if (isRemote) {
+        if (isRemote || !window.ghostAPI || typeof window.ghostAPI.getProjects !== "function") {
           const res = await fetch(`${getEffectiveHostUrl()}/api/projects`);
           projects = await res.json();
         } else {
-          projects = await window.ghostAPI.getProjects();
+          try {
+            projects = await window.ghostAPI.getProjects();
+          } catch (apiErr) {
+            console.warn("window.ghostAPI.getProjects failed, trying HTTP:", apiErr);
+            const res = await fetch(`${getEffectiveHostUrl()}/api/projects`);
+            projects = await res.json();
+          }
         }
 
         if (!Array.isArray(projects)) {
@@ -1490,11 +1497,17 @@
       try {
         let historyData = null;
         const isRemote = getSavedHostMode() === "remote";
-        if (isRemote) {
+        if (isRemote || !window.ghostAPI || typeof window.ghostAPI.getConversationHistory !== "function") {
           const res = await fetch(`${getEffectiveHostUrl()}/api/conversations/${cid}`);
           historyData = await res.json();
         } else {
-          historyData = await window.ghostAPI.getConversationHistory(cid);
+          try {
+            historyData = await window.ghostAPI.getConversationHistory(cid);
+          } catch (apiErr) {
+            console.warn("window.ghostAPI.getConversationHistory failed, trying HTTP:", apiErr);
+            const res = await fetch(`${getEffectiveHostUrl()}/api/conversations/${cid}`);
+            historyData = await res.json();
+          }
         }
 
         chat.innerHTML = "";
@@ -1523,7 +1536,7 @@
       try {
         let resData = null;
         const isRemote = getSavedHostMode() === "remote";
-        if (isRemote) {
+        if (isRemote || !window.ghostAPI || typeof window.ghostAPI.createConversation !== "function") {
           const res = await fetch(`${getEffectiveHostUrl()}/api/conversations/new`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -1531,7 +1544,17 @@
           });
           resData = await res.json();
         } else {
-          resData = await window.ghostAPI.createConversation({ workspace: defaultWs, title: title.trim() || "Nuevo Chat" });
+          try {
+            resData = await window.ghostAPI.createConversation({ workspace: defaultWs, title: title.trim() || "Nuevo Chat" });
+          } catch (apiErr) {
+            console.warn("window.ghostAPI.createConversation failed, trying HTTP:", apiErr);
+            const res = await fetch(`${getEffectiveHostUrl()}/api/conversations/new`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ workspace: defaultWs, title: title.trim() || "Nuevo Chat" })
+            });
+            resData = await res.json();
+          }
         }
 
         if (resData && resData.id) {
@@ -1562,6 +1585,10 @@
     if (btnSidebarOpenFolder) {
       btnSidebarOpenFolder.addEventListener("click", async () => {
         try {
+          if (!window.ghostAPI || typeof window.ghostAPI.selectProjectFolder !== "function") {
+            alert("La selección nativa de carpetas está disponible en la app de escritorio Ghost AI.");
+            return;
+          }
           const folder = await window.ghostAPI.selectProjectFolder();
           if (folder) {
             currentWorkspace = folder.replace(/\\/g, "/");
@@ -1653,7 +1680,9 @@
     slider.addEventListener("input", () => {
       const v = slider.value;
       opacityVal.textContent = v + "%";
-      window.ghostAPI.setOpacity(v / 100);
+      if (window.ghostAPI && typeof window.ghostAPI.setOpacity === "function") {
+        window.ghostAPI.setOpacity(v / 100);
+      }
     });
 
     // Clear
@@ -1703,6 +1732,10 @@
     // Document Loading via dialog button
     btnLoadDoc.addEventListener("click", async () => {
       try {
+        if (!window.ghostAPI || typeof window.ghostAPI.selectDocument !== "function") {
+          alert("Selección de archivos nativa disponible en la app Ghost AI.");
+          return;
+        }
         const docs = await window.ghostAPI.selectDocument();
         if (!docs || !docs.length) return;
 
@@ -1730,7 +1763,9 @@
         focusIndicator.classList.add("active");
         btnTypeToggle.classList.add("active");
         btnTypeToggle.title = "Tipear: ACTIVO (Toca para desactivar foco)";
-        await window.ghostAPI.setFocusMode(true);
+        if (window.ghostAPI && typeof window.ghostAPI.setFocusMode === "function") {
+          await window.ghostAPI.setFocusMode(true);
+        }
         if (shouldFocusInput) input.focus();
       } else {
         focusIndicator.textContent = "NO-FOCO";
@@ -1738,7 +1773,9 @@
         btnTypeToggle.classList.remove("active");
         btnTypeToggle.title = "Tipear: INACTIVO (Toca para activar foco)";
         input.blur();
-        await window.ghostAPI.setFocusMode(false);
+        if (window.ghostAPI && typeof window.ghostAPI.setFocusMode === "function") {
+          await window.ghostAPI.setFocusMode(false);
+        }
       }
     }
 
@@ -1746,22 +1783,24 @@
       setTypingMode(!typingMode, true);
     });
 
-    window.ghostAPI.onFocusStateChanged((state) => {
-      typingMode = state;
-      btnTypeToggle.textContent = "✎";
-      if (typingMode) {
-        focusIndicator.textContent = "TECLADO";
-        focusIndicator.classList.add("active");
-        btnTypeToggle.classList.add("active");
-        btnTypeToggle.title = "Tipear: ACTIVO (Toca para desactivar foco)";
-      } else {
-        focusIndicator.textContent = "NO-FOCO";
-        focusIndicator.classList.remove("active");
-        btnTypeToggle.classList.remove("active");
-        btnTypeToggle.title = "Tipear: INACTIVO (Toca para activar foco)";
-        input.blur();
-      }
-    });
+    if (window.ghostAPI && typeof window.ghostAPI.onFocusStateChanged === "function") {
+      window.ghostAPI.onFocusStateChanged((state) => {
+        typingMode = state;
+        btnTypeToggle.textContent = "✎";
+        if (typingMode) {
+          focusIndicator.textContent = "TECLADO";
+          focusIndicator.classList.add("active");
+          btnTypeToggle.classList.add("active");
+          btnTypeToggle.title = "Tipear: ACTIVO (Toca para desactivar foco)";
+        } else {
+          focusIndicator.textContent = "NO-FOCO";
+          focusIndicator.classList.remove("active");
+          btnTypeToggle.classList.remove("active");
+          btnTypeToggle.title = "Tipear: INACTIVO (Toca para activar foco)";
+          input.blur();
+        }
+      });
+    }
 
     input.addEventListener("mousedown", () => {
       if (!typingMode) setTypingMode(true, true);
@@ -1903,7 +1942,9 @@
 
       let text = "";
       try {
-        text = await window.ghostAPI.getSelectedText();
+        if (window.ghostAPI && typeof window.ghostAPI.getSelectedText === "function") {
+          text = await window.ghostAPI.getSelectedText();
+        }
       } catch (err) {
         addMsg("ai", "Error al capturar seleccion: " + err.message);
         return;
@@ -1928,7 +1969,11 @@
 
       let text = "";
       try {
-        text = await window.ghostAPI.getClipboard();
+        if (window.ghostAPI && typeof window.ghostAPI.getClipboard === "function") {
+          text = await window.ghostAPI.getClipboard();
+        } else if (navigator.clipboard && navigator.clipboard.readText) {
+          text = await navigator.clipboard.readText();
+        }
       } catch (err) {
         addMsg("ai", "Error leyendo portapapeles: " + err.message);
         return;
@@ -1943,7 +1988,9 @@
     }
 
     btnClip.addEventListener("click", askFromClipboard);
-    window.ghostAPI.onAskClipboard(askFromClipboard);
+    if (window.ghostAPI && typeof window.ghostAPI.onAskClipboard === "function") {
+      window.ghostAPI.onAskClipboard(askFromClipboard);
+    }
 
     function renderFormattedContent(text) {
       if (!text) return "";
@@ -2022,6 +2069,21 @@
       el.className = `msg ${type}`;
       if (type === "ai" || type === "hint") {
         el.innerHTML = renderFormattedContent(text);
+
+        // Auto-render any remaining mathematical formulas inside DOM
+        if (typeof renderMathInElement === "function") {
+          try {
+            renderMathInElement(el, {
+              delimiters: [
+                { left: "$$", right: "$$", display: true },
+                { left: "\\[", right: "\\]", display: true },
+                { left: "$", right: "$", display: false },
+                { left: "\\(", right: "\\)", display: false }
+              ],
+              throwOnError: false
+            });
+          } catch (e) {}
+        }
 
         // Add 1-click copy button on AI answers
         if (type === "ai" && text && !text.includes("loading-bubble")) {
@@ -2178,7 +2240,24 @@
           conversationId: currentConversationId
         };
 
-        const res = await window.ghostAPI.sendMessage(payload);
+        let res = null;
+        if (window.ghostAPI && typeof window.ghostAPI.sendMessage === "function") {
+          res = await window.ghostAPI.sendMessage(payload);
+        } else {
+          const sRes = await fetch(`${getEffectiveHostUrl()}/api/solve`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              prompt: text,
+              type: "auto",
+              engine: engineSelectVal,
+              apiKey: apiKey,
+              conversationId: currentConversationId
+            })
+          });
+          const sData = await sRes.json();
+          res = sData.error ? { error: sData.error } : { text: sData.solution };
+        }
         loadingEl.remove();
         if (res.error) {
           addMsg("ai", "Error: " + res.error);
