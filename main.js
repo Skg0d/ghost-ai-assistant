@@ -21,6 +21,7 @@ function createWindow() {
     height: 600,
     center: true,
     frame: true,
+    autoHideMenuBar: true,
     alwaysOnTop: true,
     backgroundColor: "#ffffff",
     focusable: false, // Stealth: clicking does not steal focus from browser!
@@ -32,6 +33,7 @@ function createWindow() {
     show: true,
   });
 
+  mainWindow.setMenuBarVisibility(false);
   mainWindow.loadFile(path.join(__dirname, "index.html"));
   mainWindow.setAlwaysOnTop(true, "status");
 
