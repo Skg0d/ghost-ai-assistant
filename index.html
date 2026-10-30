@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Ghost AI - Antigravity Grounded Overlay</title>
+  <link rel="stylesheet" href="katex.min.css" />
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -748,6 +749,18 @@
       border-color: var(--text-main);
     }
 
+    /* KaTeX Mathematical Formulas Styling */
+    .katex {
+      font-size: 1.05em;
+      color: inherit;
+    }
+    .katex-display {
+      margin: 8px 0 !important;
+      overflow-x: auto;
+      overflow-y: hidden;
+      padding: 4px 0;
+    }
+
     /* Slash command suggestions dropdown */
     #slash-popup {
       position: absolute;
@@ -1142,6 +1155,7 @@
   </div>
 
   <!-- Scripts -->
+  <script src="katex.min.js"></script>
   <script src="marked.min.js"></script>
   <script>
     const chat = document.getElementById("chat");
@@ -1931,17 +1945,83 @@
     btnClip.addEventListener("click", askFromClipboard);
     window.ghostAPI.onAskClipboard(askFromClipboard);
 
+    function renderFormattedContent(text) {
+      if (!text) return "";
+
+      let processed = text;
+      const mathBlocks = [];
+
+      // 1. Pre-process LaTeX Math with KaTeX
+      if (typeof katex !== "undefined" && typeof katex.renderToString === "function") {
+        // Display math: $$...$$ or \[...\]
+        processed = processed.replace(/\$\$([\s\S]+?)\$\$/g, (_, math) => {
+          try {
+            const rendered = katex.renderToString(math.trim(), { displayMode: true, throwOnError: false });
+            mathBlocks.push(rendered);
+            return "@@MATH_BLOCK_" + (mathBlocks.length - 1) + "@@";
+          } catch (e) {
+            return math;
+          }
+        });
+
+        processed = processed.replace(/\\\[([\s\S]+?)\\\]/g, (_, math) => {
+          try {
+            const rendered = katex.renderToString(math.trim(), { displayMode: true, throwOnError: false });
+            mathBlocks.push(rendered);
+            return "@@MATH_BLOCK_" + (mathBlocks.length - 1) + "@@";
+          } catch (e) {
+            return math;
+          }
+        });
+
+        // Inline math: $...$ or \(...\)
+        processed = processed.replace(/\$([^\$\n\r]+?)\$/g, (_, math) => {
+          try {
+            const rendered = katex.renderToString(math.trim(), { displayMode: false, throwOnError: false });
+            mathBlocks.push(rendered);
+            return "@@MATH_BLOCK_" + (mathBlocks.length - 1) + "@@";
+          } catch (e) {
+            return math;
+          }
+        });
+
+        processed = processed.replace(/\\\(([\s\S]+?)\\\)/g, (_, math) => {
+          try {
+            const rendered = katex.renderToString(math.trim(), { displayMode: false, throwOnError: false });
+            mathBlocks.push(rendered);
+            return "@@MATH_BLOCK_" + (mathBlocks.length - 1) + "@@";
+          } catch (e) {
+            return math;
+          }
+        });
+      }
+
+      // 2. Parse Markdown
+      let html = "";
+      if (typeof marked !== "undefined" && marked.parse) {
+        html = marked.parse(processed);
+      } else if (window.ghostAPI && typeof window.ghostAPI.renderMarkdown === "function") {
+        html = window.ghostAPI.renderMarkdown(processed);
+      } else {
+        html = processed.replace(/\n/g, "<br/>");
+      }
+
+      // 3. Restore Math Blocks
+      if (mathBlocks.length > 0) {
+        html = html.replace(/@@MATH_BLOCK_(\d+)@@/g, (_, idx) => {
+          const index = parseInt(idx, 10);
+          return mathBlocks[index] !== undefined ? mathBlocks[index] : "";
+        });
+      }
+
+      return html;
+    }
+
     function addMsg(type, text) {
       const el = document.createElement("div");
       el.className = `msg ${type}`;
       if (type === "ai" || type === "hint") {
-        if (typeof marked !== "undefined" && marked.parse) {
-          el.innerHTML = marked.parse(text || "");
-        } else if (window.ghostAPI && typeof window.ghostAPI.renderMarkdown === "function") {
-          el.innerHTML = window.ghostAPI.renderMarkdown(text);
-        } else {
-          el.textContent = text;
-        }
+        el.innerHTML = renderFormattedContent(text);
 
         // Add 1-click copy button on AI answers
         if (type === "ai" && text && !text.includes("loading-bubble")) {
