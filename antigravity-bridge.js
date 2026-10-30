@@ -122,14 +122,17 @@ async function solveWithPython(type, prompt) {
 
 // Helper: Map UI engine identifier to native Antigravity CLI model name
 function getAgyModelName(engine) {
-  if (engine === "claude-sonnet-4.6" || engine === "antigravity-claude-sonnet-4.6") {
-    return "Claude Sonnet 4.6 (Thinking)";
+  if (engine === "gemini-3.8-flash-high" || engine === "antigravity-gemini-3.8-flash-high" || engine === "gemini-3.8-flash") {
+    return "gemini-3.8-flash-high";
   }
-  if (engine === "claude-opus-4.6" || engine === "antigravity-claude-opus-4.6") {
-    return "Claude Opus 4.6 (Thinking)";
+  if (engine === "claude-sonnet-4.6" || engine === "antigravity-claude-sonnet-4.6" || engine === "claude-sonnet-4-6") {
+    return "claude-sonnet-4-6";
   }
-  if (engine === "gpt-oss-120b" || engine === "antigravity-gpt-oss-120b") {
-    return "GPT-OSS 120B (Medium)";
+  if (engine === "claude-opus-4.6" || engine === "antigravity-claude-opus-4.6" || engine === "claude-opus-4-6-thinking") {
+    return "claude-opus-4-6-thinking";
+  }
+  if (engine === "gpt-oss-120b" || engine === "antigravity-gpt-oss-120b" || engine === "gpt-oss-120b-medium") {
+    return "gpt-oss-120b-medium";
   }
   return null;
 }
@@ -366,13 +369,13 @@ function createBridgeServer(port = DEFAULT_PORT, options = {}) {
 
         let solution = null;
 
-        // Try native Antigravity CLI models (Claude / GPT-OSS) first
+        // Try native Antigravity CLI models (Gemini 3.8 Flash HIGH, Claude, GPT-OSS) first
         const agyModel = getAgyModelName(engine);
         if (agyModel) {
           try {
-            solution = await callAgyCli(prompt, agyModel);
+            solution = await callAgyCli(prompt, agyModel, { conversationId: body.conversationId });
           } catch (cliErr) {
-            solution = `[Antigravity CLI - ${agyModel}]: ${cliErr.message}\n\nPuedes seleccionar Gemini 3.8 Flash HIGH o Gemini 3.5 Flash como alternativa instantánea.`;
+            solution = `[Antigravity CLI - ${agyModel}]: ${cliErr.message}\n\nPuedes seleccionar Gemini 3.5 Flash como alternativa instantánea.`;
           }
         } else if (engine === "antigravity" || engine === "antigravity-solver") {
           // Try Python solver if Antigravity exact solver engine is requested
