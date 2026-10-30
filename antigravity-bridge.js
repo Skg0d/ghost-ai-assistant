@@ -161,7 +161,7 @@ function callAgyCli(promptText, modelName = null, options = {}) {
         (err, stdout, stderr) => {
           const out = (stdout || "").trim();
           const errStr = (stderr || "").trim();
-          if (out) return resolve(out);
+          if (out && !out.toLowerCase().includes("sin respuesta")) return resolve(out);
           if (err) {
             // If trajectory not found, retry once without --conversation
             if (options.conversationId && cliArgs.some(a => a.startsWith("--conversation")) && /trajectory not found/i.test(errStr)) {
@@ -172,7 +172,8 @@ function callAgyCli(promptText, modelName = null, options = {}) {
             }
             return reject(new Error(errStr || err.message || "Error al ejecutar Antigravity CLI"));
           }
-          resolve(out || "Sin respuesta del modelo Antigravity.");
+          if (out) return resolve(out);
+          return reject(new Error("Salida vacía de Antigravity CLI"));
         }
       );
     };

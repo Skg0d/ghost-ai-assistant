@@ -439,7 +439,7 @@ ${message}`;
         conversationId: conversationId || undefined,
         workspace: (documents && documents[0] && documents[0].workspace) || "c:/Users/ariel/testeos"
       });
-      if (cliResult) {
+      if (cliResult && cliResult.trim().length > 10 && !cliResult.toLowerCase().includes("sin respuesta")) {
         log(`Antigravity CLI succeeded! Length: ${cliResult.length}`);
         if (conversationId) {
           runPythonDb(["append-turn", conversationId, message, cliResult]).catch(() => {});
@@ -448,6 +448,8 @@ ${message}`;
           broadcastSSE("solution", { prompt: message, solution: cliResult, engine, timestamp: Date.now() });
         } catch (e) {}
         return { text: cliResult, model: agyModel || "antigravity" };
+      } else {
+        log(`Antigravity CLI output discarded (empty or invalid). Falling back to direct API...`);
       }
     } catch (cliErr) {
       log(`Antigravity CLI error (${agyModel || 'antigravity'}): ${cliErr.message}, falling back to direct API...`);
