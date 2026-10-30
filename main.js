@@ -34,13 +34,46 @@ function createWindow() {
     show: true,
   });
 
-  mainWindow.removeMenu();
   mainWindow.setMenuBarVisibility(false);
+  mainWindow.setAutoHideMenuBar(true);
   mainWindow.loadFile(path.join(__dirname, "index.html"));
   mainWindow.setAlwaysOnTop(true, "status");
 
   mainWindow.webContents.on("console-message", (_event, _level, message) => {
     log(`[Renderer] ${message}`);
+  });
+
+  // Right-click context menu for Copy, Cut, Paste, and Select All
+  mainWindow.webContents.on("context-menu", (_event, params) => {
+    const menuTemplate = [];
+
+    if (params.isEditable) {
+      menuTemplate.push(
+        { role: "undo", label: "Deshacer" },
+        { role: "redo", label: "Rehacer" },
+        { type: "separator" },
+        { role: "cut", label: "Cortar" },
+        { role: "copy", label: "Copiar" },
+        { role: "paste", label: "Pegar" },
+        { type: "separator" },
+        { role: "selectAll", label: "Seleccionar todo" }
+      );
+    } else if (params.selectionText && params.selectionText.trim().length > 0) {
+      menuTemplate.push(
+        { role: "copy", label: "Copiar" },
+        { type: "separator" },
+        { role: "selectAll", label: "Seleccionar todo" }
+      );
+    } else {
+      menuTemplate.push(
+        { role: "selectAll", label: "Seleccionar todo" }
+      );
+    }
+
+    if (menuTemplate.length > 0) {
+      const contextMenu = Menu.buildFromTemplate(menuTemplate);
+      contextMenu.popup({ window: mainWindow });
+    }
   });
 }
 
@@ -59,7 +92,23 @@ if (!gotTheLock) {
 
   app.whenReady().then(() => {
     log("app.whenReady");
-    Menu.setApplicationMenu(null);
+
+    // Maintain native edit accelerators (Ctrl+C, Ctrl+V, Ctrl+A, Ctrl+X) while keeping menu bar hidden
+    const editMenuTemplate = [
+      {
+        label: "Edit",
+        submenu: [
+          { role: "undo", accelerator: "CmdOrCtrl+Z" },
+          { role: "redo", accelerator: "CmdOrCtrl+Y" },
+          { type: "separator" },
+          { role: "cut", accelerator: "CmdOrCtrl+X" },
+          { role: "copy", accelerator: "CmdOrCtrl+C" },
+          { role: "paste", accelerator: "CmdOrCtrl+V" },
+          { role: "selectAll", accelerator: "CmdOrCtrl+A" }
+        ]
+      }
+    ];
+    Menu.setApplicationMenu(Menu.buildFromTemplate(editMenuTemplate));
     createWindow();
 
     // Start Antigravity Bridge Server for Remote Web & Word Sync
@@ -223,6 +272,18 @@ ipcMain.handle("get-clipboard", () => {
   const text = clipboard.readText();
   log(`get-clipboard called: "${text ? text.substring(0, 40) : ""}" (len=${text ? text.length : 0})`);
   return text || "";
+});
+
+// IPC: Write clipboard
+ipcMain.handle("copy-text", (_event, text) => {
+  try {
+    clipboard.writeText(text || "");
+    log(`copy-text called: len=${text ? text.length : 0}`);
+    return true;
+  } catch (err) {
+    log("copy-text error: " + err.message);
+    return false;
+  }
 });
 
 // IPC: Antigravity Projects & Conversation Management
