@@ -17,6 +17,7 @@ contextBridge.exposeInMainWorld("ghostAPI", {
     return file.path || "";
   },
   setFocusMode: (state) => ipcRenderer.invoke("set-focus-mode", state),
+  getRemoteInfo: () => ipcRenderer.invoke("get-remote-info"),
   onAskClipboard: (cb) => ipcRenderer.on("ask-clipboard", cb),
   onFocusStateChanged: (cb) => ipcRenderer.on("focus-state-changed", (_e, state) => cb(state)),
 });

@@ -41,6 +41,39 @@ const turnUserText = document.getElementById("turn-user-text");
 const modelBadge = document.getElementById("model-badge");
 const cardModelFooter = document.getElementById("card-model-footer");
 
+// Antigravity Remote & Engine Elements
+const engineSelect = document.getElementById("engine-select");
+const bridgeStatusBadge = document.getElementById("bridge-status-badge");
+const btnRemote = document.getElementById("btn-remote");
+const remoteModal = document.getElementById("remote-modal");
+const btnRemoteClose = document.getElementById("btn-remote-close");
+const btnCopyRemoteUrl = document.getElementById("btn-copy-remote-url");
+const remoteUrlDisplay = document.getElementById("remote-url-display");
+const btnCloudDownload = document.getElementById("btn-cloud-download");
+
+let isBridgeOnline = false;
+let remoteNetworkUrl = "http://localhost:7777/remote";
+
+async function checkBridgeStatus() {
+  try {
+    const res = await fetch("http://localhost:7777/api/status");
+    const data = await res.json();
+    if (data.ok) {
+      isBridgeOnline = true;
+      if (bridgeStatusBadge) bridgeStatusBadge.style.display = "inline";
+      if (data.networkUrl) {
+        remoteNetworkUrl = data.networkUrl;
+        if (remoteUrlDisplay) remoteUrlDisplay.textContent = data.networkUrl;
+      }
+    }
+  } catch (e) {
+    isBridgeOnline = false;
+    if (bridgeStatusBadge) bridgeStatusBadge.style.display = "none";
+  }
+}
+checkBridgeStatus();
+setInterval(checkBridgeStatus, 10000);
+
 // Toast Feedback Notification
 const toastEl = document.getElementById("toast");
 let toastTimer = null;
@@ -213,6 +246,67 @@ btnModalSave.addEventListener("click", () => {
   apiModal.classList.remove("active");
   alert("API Key guardada con éxito.");
 });
+
+// Remote Modal Controls
+if (btnRemote) {
+  btnRemote.addEventListener("click", () => {
+    checkBridgeStatus();
+    if (remoteModal) remoteModal.classList.add("active");
+  });
+}
+if (btnRemoteClose) {
+  btnRemoteClose.addEventListener("click", () => {
+    if (remoteModal) remoteModal.classList.remove("active");
+  });
+}
+if (btnCopyRemoteUrl) {
+  btnCopyRemoteUrl.addEventListener("click", () => {
+    navigator.clipboard.writeText(remoteNetworkUrl);
+    showToast("✅ Enlace remoto copiado");
+    if (btnCopyRemoteUrl) btnCopyRemoteUrl.textContent = "¡Copiado!";
+    setTimeout(() => {
+      if (btnCopyRemoteUrl) btnCopyRemoteUrl.textContent = "Copiar Enlace";
+    }, 2000);
+  });
+}
+
+// Cloud Download (HTTPS Remote Export)
+if (btnCloudDownload) {
+  btnCloudDownload.addEventListener("click", async () => {
+    const activeTurn = (chatTurns && activeTurnIndex >= 0 && chatTurns[activeTurnIndex]) ? chatTurns[activeTurnIndex] : null;
+    const markdownToExport = activeTurn ? activeTurn.rawMarkdown : currentRawMarkdown;
+    const promptToExport = activeTurn ? activeTurn.userPrompt : promptInput.value;
+
+    if (!markdownToExport) {
+      showToast("No hay resolución para exportar");
+      return;
+    }
+
+    showToast("☁️ Generando enlace remoto...");
+    try {
+      const res = await fetch("http://localhost:7777/api/export", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: "Resolución Word Oficial",
+          exerciseText: promptToExport || "Ejercicio Resuelto",
+          markdown: markdownToExport,
+          format: "docx"
+        })
+      });
+      const data = await res.json();
+      if (data.ok && data.url) {
+        navigator.clipboard.writeText(data.url);
+        showToast("✅ Link copiado: " + data.url);
+        window.open(data.url, "_blank");
+      } else {
+        showToast("❌ No se pudo subir el archivo");
+      }
+    } catch (err) {
+      showToast("❌ Error con el puente: " + err.message);
+    }
+  });
+}
 
 // Clear input and reset conversational memory
 btnClear.addEventListener("click", () => {
@@ -1714,11 +1808,51 @@ REGLAS DE FORMATO:
   resultContainer.style.display = "none";
 
   try {
-    const apiResult = await callGeminiAPI(chatHistory, apiKey);
+    let apiResult = null;
+    const selectedEngine = engineSelect ? engineSelect.value : "antigravity";
+
+    // If Antigravity Engine is selected and the local bridge is running, solve via bridge
+    if (selectedEngine === "antigravity" && isBridgeOnline) {
+      try {
+        const bridgeRes = await fetch("http://localhost:7777/api/solve", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            prompt: query,
+            type: exerciseType.value,
+            engine: "antigravity",
+            apiKey: apiKey
+          })
+        });
+        const bridgeData = await bridgeRes.json();
+        if (bridgeData && bridgeData.solution) {
+          apiResult = { text: bridgeData.solution, model: "antigravity-python" };
+        }
+      } catch (be) {
+        console.warn("Bridge solve fallback to direct Gemini:", be);
+      }
+    }
+
+    if (!apiResult) {
+      apiResult = await callGeminiAPI(chatHistory, apiKey);
+    }
+
     const responseText = typeof apiResult === "object" ? apiResult.text : apiResult;
     const modelUsed = (typeof apiResult === "object" && apiResult.model) ? apiResult.model : "gemini-3.8-flash";
 
     chatHistory.push({ role: "model", parts: [{ text: responseText }] });
+
+    // Sync with remote mobile clients via bridge SSE
+    if (isBridgeOnline) {
+      fetch("http://localhost:7777/api/broadcast", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "solution",
+          data: { prompt: query, solution: responseText, engine: selectedEngine }
+        })
+      }).catch(() => {});
+    }
 
     // Switch UI to multi-turn mode
     btnSolve.textContent = "Preguntar / Ajustar";

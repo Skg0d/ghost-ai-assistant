@@ -499,6 +499,23 @@
     </div>
   </div>
 
+  <!-- Remote Modal -->
+  <div id="remote-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:9999; align-items:center; justify-content:center;">
+    <div class="modal-card" style="background:#fff; border-radius:12px; padding:18px; max-width:320px; box-shadow:0 10px 25px rgba(0,0,0,0.2);">
+      <h3 style="font-size:14px; color:#1e1b4b; margin-bottom:6px;">📱 Antigravity Remote</h3>
+      <p style="font-size:11px; color:#475569; margin-bottom:10px;">
+        Abre este enlace en tu celular o notebook remota para ver las respuestas en vivo y descargar Word/PDF:
+      </p>
+      <div id="remote-url-box" style="background:#f1f5f9; padding:8px 10px; border-radius:6px; font-family:monospace; font-size:11px; color:#1e293b; word-break:break-all; border:1px solid #e2e8f0; margin-bottom:12px;">
+        http://localhost:7777/remote
+      </div>
+      <div style="display:flex; gap:8px;">
+        <button class="btn-modal-cancel" id="btn-remote-close" style="flex:1;">Cerrar</button>
+        <button class="btn-modal-save" id="btn-remote-copy" style="flex:1;">Copiar</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Drag and Drop Overlay -->
   <div id="drop-overlay">
     <div class="drop-icon">📥</div>
@@ -509,16 +526,19 @@
   <!-- Header -->
   <div id="header">
     <div class="status-group">
-      <div class="badge">
-        <span class="dot"></span>
-        Gemini 3.5 Flash
-      </div>
+      <select id="engine-select" style="background:#fff; border:1px solid #cbd5e1; border-radius:6px; font-size:11px; font-weight:600; color:#4338ca; padding:2px 6px; outline:none; cursor:pointer;" title="Elige el motor de inteligencia">
+        <option value="antigravity" selected>🔮 Antigravity Engine</option>
+        <option value="gemini">⚡ Gemini 3.5 Flash</option>
+      </select>
       <span id="focus-indicator" title="Tocar esta ventana NO le quita el foco a tu navegador">🛡️ NO-FOCO (SEGURO)</span>
     </div>
     <div class="opacity-control">
       <span>Opacidad:</span>
       <input type="range" id="opacity-slider" min="15" max="100" value="95" />
       <span id="opacity-val">95%</span>
+      <button class="btn-apikey" id="btn-open-remote" style="background:#e0e7ff; color:#3730a3; border-color:#c7d2fe;" title="Abrir Ghost Remote para celular">
+        📱 Remoto
+      </button>
       <button class="btn-apikey" id="btn-open-apikey" title="Configurar tu clave de Google Gemini">
         ⚙️ API Key
       </button>
@@ -920,11 +940,13 @@
       chat.scrollTop = chat.scrollHeight;
 
       try {
+        const engineSelectVal = document.getElementById("engine-select") ? document.getElementById("engine-select").value : "antigravity";
         const payload = {
           message: text,
           documents: activeDocuments.map(d => ({ name: d.name, content: d.content })),
           userApiKey: apiKey,
           history: conversationHistory.slice(-6), // Send last 6 turns for conversational context
+          engine: engineSelectVal
         };
 
         const res = await window.ghostAPI.sendMessage(payload);
@@ -946,6 +968,50 @@
       sendBtn.disabled = false;
       btnClip.disabled = false;
       btnSelect.disabled = false;
+    }
+
+    // Remote Modal Controls
+    const btnOpenRemote = document.getElementById("btn-open-remote");
+    const remoteModal = document.getElementById("remote-modal");
+    const btnRemoteClose = document.getElementById("btn-remote-close");
+    const btnRemoteCopy = document.getElementById("btn-remote-copy");
+    const remoteUrlBox = document.getElementById("remote-url-box");
+
+    let cachedRemoteUrl = "http://localhost:7777/remote";
+
+    async function updateRemoteInfo() {
+      try {
+        if (window.ghostAPI && window.ghostAPI.getRemoteInfo) {
+          const info = await window.ghostAPI.getRemoteInfo();
+          if (info && info.networkUrl) {
+            cachedRemoteUrl = info.networkUrl;
+            if (remoteUrlBox) remoteUrlBox.textContent = info.networkUrl;
+          }
+        }
+      } catch (e) {}
+    }
+
+    if (btnOpenRemote) {
+      btnOpenRemote.addEventListener("click", () => {
+        updateRemoteInfo();
+        if (remoteModal) remoteModal.style.display = "flex";
+      });
+    }
+
+    if (btnRemoteClose) {
+      btnRemoteClose.addEventListener("click", () => {
+        if (remoteModal) remoteModal.style.display = "none";
+      });
+    }
+
+    if (btnRemoteCopy) {
+      btnRemoteCopy.addEventListener("click", () => {
+        navigator.clipboard.writeText(cachedRemoteUrl);
+        btnRemoteCopy.textContent = "¡Copiado!";
+        setTimeout(() => {
+          btnRemoteCopy.textContent = "Copiar";
+        }, 2000);
+      });
     }
   </script>
 </body>
