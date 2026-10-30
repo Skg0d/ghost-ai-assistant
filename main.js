@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, globalShortcut, clipboard, dialog, webUtils } = require("electron");
+const { app, BrowserWindow, Menu, ipcMain, globalShortcut, clipboard, dialog, webUtils } = require("electron");
 const { execFile } = require("child_process");
 const path = require("path");
 const fs = require("fs");
@@ -33,6 +33,7 @@ function createWindow() {
     show: true,
   });
 
+  mainWindow.removeMenu();
   mainWindow.setMenuBarVisibility(false);
   mainWindow.loadFile(path.join(__dirname, "index.html"));
   mainWindow.setAlwaysOnTop(true, "status");
@@ -57,6 +58,7 @@ if (!gotTheLock) {
 
   app.whenReady().then(() => {
     log("app.whenReady");
+    Menu.setApplicationMenu(null);
     createWindow();
 
     // Start Antigravity Bridge Server for Remote Web & Word Sync
