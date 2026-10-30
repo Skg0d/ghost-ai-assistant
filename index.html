@@ -7,17 +7,88 @@
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
 
+    :root {
+      --bg-app: #ffffff;
+      --bg-header: #f8fafc;
+      --bg-card: #f8fafc;
+      --bg-card-hover: #f1f5f9;
+      --bg-input: #ffffff;
+      --border-main: #e2e8f0;
+      --border-btn: #cbd5e1;
+      --text-main: #0f172a;
+      --text-muted: #64748b;
+      --btn-primary-bg: #000000;
+      --btn-primary-fg: #ffffff;
+      --btn-primary-hover: #262626;
+      --btn-secondary-bg: #ffffff;
+      --btn-secondary-fg: #0f172a;
+      --btn-secondary-border: #cbd5e1;
+      --btn-secondary-hover: #f1f5f9;
+      --msg-user-bg: #f1f5f9;
+      --msg-user-fg: #0f172a;
+      --msg-user-border: #cbd5e1;
+      --msg-ai-bg: #ffffff;
+      --msg-ai-fg: #0f172a;
+      --msg-ai-border: #e2e8f0;
+      --msg-hint-bg: #f8fafc;
+      --msg-hint-border: #cbd5e1;
+      --msg-hint-fg: #334155;
+      --focus-bg: #f8fafc;
+      --focus-fg: #0f172a;
+      --focus-border: #0f172a;
+      --focus-active-bg: #000000;
+      --focus-active-fg: #ffffff;
+      --focus-active-border: #000000;
+      --modal-bg: #ffffff;
+    }
+
+    body.theme-dark {
+      --bg-app: #09090b;
+      --bg-header: #121215;
+      --bg-card: #18181b;
+      --bg-card-hover: #27272a;
+      --bg-input: #18181b;
+      --border-main: #27272a;
+      --border-btn: #3f3f46;
+      --text-main: #f4f4f5;
+      --text-muted: #a1a1aa;
+      --btn-primary-bg: #ffffff;
+      --btn-primary-fg: #09090b;
+      --btn-primary-hover: #e4e4e7;
+      --btn-secondary-bg: #18181b;
+      --btn-secondary-fg: #f4f4f5;
+      --btn-secondary-border: #3f3f46;
+      --btn-secondary-hover: #27272a;
+      --msg-user-bg: #18181b;
+      --msg-user-fg: #f4f4f5;
+      --msg-user-border: #27272a;
+      --msg-ai-bg: #121215;
+      --msg-ai-fg: #f4f4f5;
+      --msg-ai-border: #27272a;
+      --msg-hint-bg: #141417;
+      --msg-hint-border: #3f3f46;
+      --msg-hint-fg: #d4d4d8;
+      --focus-bg: #18181b;
+      --focus-fg: #f4f4f5;
+      --focus-border: #52525b;
+      --focus-active-bg: #ffffff;
+      --focus-active-fg: #000000;
+      --focus-active-border: #ffffff;
+      --modal-bg: #141417;
+    }
+
     body {
       width: 100vw;
       height: 100vh;
       overflow: hidden;
-      background: #ffffff;
+      background: var(--bg-app);
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
       font-size: 13px;
-      color: #111827;
+      color: var(--text-main);
       display: flex;
       flex-direction: column;
       position: relative;
+      transition: background 0.15s ease, color 0.15s ease;
     }
 
     /* Drag & Drop Overlay */
@@ -27,8 +98,8 @@
       left: 0;
       width: 100%;
       height: 100%;
-      background: rgba(245, 243, 255, 0.96);
-      border: 2px dashed #6366f1;
+      background: rgba(0, 0, 0, 0.85);
+      border: 2px dashed #ffffff;
       border-radius: 8px;
       z-index: 9999;
       display: none;
@@ -47,22 +118,22 @@
     #drop-overlay .drop-text {
       font-size: 15px;
       font-weight: 700;
-      color: #4338ca;
+      color: #ffffff;
     }
 
     #drop-overlay .drop-sub {
       font-size: 12px;
-      color: #6366f1;
+      color: #cccccc;
     }
 
-    /* Sidebar Drawer (Light, Minimal, Matching Ghost AI) */
+    /* Sidebar Drawer (Monochrome, Minimal, Matching Ghost AI) */
     #sidebar-overlay {
       position: absolute;
       top: 0;
       left: 0;
       width: 100%;
       height: 100%;
-      background: rgba(15, 23, 42, 0.35);
+      background: rgba(0, 0, 0, 0.45);
       backdrop-filter: blur(2px);
       z-index: 9500;
       display: none;
@@ -82,10 +153,10 @@
       width: 320px;
       max-width: 86%;
       height: 100%;
-      background: #ffffff;
-      color: #1e293b;
-      box-shadow: 6px 0 24px rgba(0, 0, 0, 0.12);
-      border-right: 1px solid #e2e8f0;
+      background: var(--bg-app);
+      color: var(--text-main);
+      box-shadow: 6px 0 24px rgba(0, 0, 0, 0.18);
+      border-right: 1px solid var(--border-main);
       display: flex;
       flex-direction: column;
       transform: translateX(-100%);
@@ -99,8 +170,8 @@
 
     .sidebar-header {
       padding: 11px 14px;
-      background: #f8fafc;
-      border-bottom: 1px solid #e2e8f0;
+      background: var(--bg-header);
+      border-bottom: 1px solid var(--border-main);
       display: flex;
       align-items: center;
       justify-content: space-between;
@@ -109,13 +180,13 @@
     .sidebar-title {
       font-size: 12.5px;
       font-weight: 700;
-      color: #1e1b4b;
+      color: var(--text-main);
     }
 
     .btn-sidebar-close {
-      background: #ffffff;
-      border: 1px solid #d1d5db;
-      color: #64748b;
+      background: var(--btn-secondary-bg);
+      border: 1px solid var(--border-btn);
+      color: var(--text-main);
       padding: 2px 7px;
       border-radius: 5px;
       cursor: pointer;
@@ -123,43 +194,40 @@
       font-weight: 600;
     }
     .btn-sidebar-close:hover {
-      background: #f1f5f9;
-      color: #0f172a;
+      background: var(--btn-secondary-hover);
     }
 
     .sidebar-actions {
       padding: 10px 12px;
       display: flex;
       gap: 8px;
-      background: #ffffff;
-      border-bottom: 1px solid #f1f5f9;
+      background: var(--bg-app);
+      border-bottom: 1px solid var(--border-main);
     }
 
     .btn-sidebar-action {
       flex: 1.2;
       padding: 7px 10px;
-      background: #4f46e5;
-      color: #ffffff;
-      border: 1px solid #4338ca;
+      background: var(--btn-primary-bg);
+      color: var(--btn-primary-fg);
+      border: 1px solid var(--btn-primary-bg);
       border-radius: 6px;
       font-size: 11.5px;
       font-weight: 600;
       cursor: pointer;
       text-align: center;
-      transition: background 0.15s;
+      transition: opacity 0.15s;
     }
-    .btn-sidebar-action:hover { background: #4338ca; }
+    .btn-sidebar-action:hover { opacity: 0.85; }
 
     .btn-sidebar-action.secondary {
       flex: 1;
-      background: #ffffff;
-      color: #475569;
-      border: 1px solid #cbd5e1;
+      background: var(--btn-secondary-bg);
+      color: var(--btn-secondary-fg);
+      border: 1px solid var(--border-btn);
     }
     .btn-sidebar-action.secondary:hover {
-      background: #f8fafc;
-      color: #0f172a;
-      border-color: #94a3b8;
+      background: var(--btn-secondary-hover);
     }
 
     .sidebar-field-group {
@@ -172,23 +240,22 @@
     .sidebar-label {
       font-size: 11px;
       font-weight: 600;
-      color: #64748b;
+      color: var(--text-muted);
     }
 
     .sidebar-select {
       width: 100%;
       padding: 6px 8px;
-      background: #f8fafc;
-      border: 1px solid #cbd5e1;
-      color: #1e293b;
+      background: var(--bg-card);
+      border: 1px solid var(--border-btn);
+      color: var(--text-main);
       border-radius: 6px;
       font-size: 11.5px;
       outline: none;
       cursor: pointer;
     }
     .sidebar-select:focus {
-      border-color: #4f46e5;
-      background: #ffffff;
+      border-color: var(--text-main);
     }
 
     .sidebar-list-header {
@@ -198,7 +265,7 @@
       justify-content: space-between;
       font-size: 11px;
       font-weight: 700;
-      color: #475569;
+      color: var(--text-muted);
     }
 
     .chat-list-container {
@@ -212,8 +279,8 @@
 
     .chat-card {
       padding: 8px 10px;
-      background: #f8fafc;
-      border: 1px solid #e2e8f0;
+      background: var(--bg-card);
+      border: 1px solid var(--border-main);
       border-radius: 7px;
       cursor: pointer;
       display: flex;
@@ -222,19 +289,19 @@
       transition: all 0.15s ease;
     }
     .chat-card:hover {
-      background: #eef2ff;
-      border-color: #c7d2fe;
+      background: var(--bg-card-hover);
+      border-color: var(--text-muted);
     }
     .chat-card.active {
-      background: #eef2ff;
-      border-color: #6366f1;
-      border-left: 3px solid #4f46e5;
+      background: var(--bg-card-hover);
+      border-color: var(--text-main);
+      border-left: 3px solid var(--text-main);
     }
 
     .chat-card-title {
       font-weight: 600;
       font-size: 12px;
-      color: #1e1b4b;
+      color: var(--text-main);
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
@@ -242,17 +309,17 @@
 
     .chat-card-meta {
       font-size: 10.5px;
-      color: #64748b;
+      color: var(--text-muted);
       display: flex;
       justify-content: space-between;
     }
 
     .sidebar-footer {
       padding: 8px 12px;
-      background: #f8fafc;
-      border-top: 1px solid #e2e8f0;
+      background: var(--bg-header);
+      border-top: 1px solid var(--border-main);
       font-size: 11px;
-      color: #64748b;
+      color: var(--text-muted);
       display: flex;
       justify-content: space-between;
       align-items: center;
@@ -260,8 +327,8 @@
 
     /* Header */
     #header {
-      background: #f9fafb;
-      border-bottom: 1px solid #e5e7eb;
+      background: var(--bg-header);
+      border-bottom: 1px solid var(--border-main);
       padding: 6px 10px;
       display: flex;
       align-items: center;
@@ -278,9 +345,9 @@
 
     .btn-sidebar-toggle {
       padding: 4px 9px;
-      background: #ffffff;
-      color: #1e1b4b;
-      border: 1.5px solid #c7d2fe;
+      background: var(--btn-secondary-bg);
+      color: var(--text-main);
+      border: 1px solid var(--border-btn);
       border-radius: 6px;
       font-size: 11.5px;
       font-weight: 700;
@@ -291,8 +358,7 @@
       transition: background 0.15s;
     }
     .btn-sidebar-toggle:hover {
-      background: #eef2ff;
-      border-color: #818cf8;
+      background: var(--btn-secondary-hover);
     }
 
     #focus-indicator {
@@ -300,15 +366,15 @@
       padding: 3px 6px;
       border-radius: 6px;
       font-weight: 600;
-      background: #ecfdf5;
-      color: #065f46;
-      border: 1px solid #a7f3d0;
+      background: var(--focus-bg);
+      color: var(--focus-fg);
+      border: 1px solid var(--focus-border);
     }
 
     #focus-indicator.active {
-      background: #fef2f2;
-      color: #991b1b;
-      border-color: #fecaca;
+      background: var(--focus-active-bg);
+      color: var(--focus-active-fg);
+      border-color: var(--focus-active-border);
     }
 
     .opacity-control {
@@ -316,13 +382,14 @@
       align-items: center;
       gap: 6px;
       font-size: 11px;
-      color: #6b7280;
+      color: var(--text-muted);
       font-weight: 600;
     }
 
     .opacity-control input[type="range"] {
-      width: 60px;
+      width: 55px;
       cursor: pointer;
+      accent-color: var(--text-main);
     }
 
     #opacity-val {
@@ -332,9 +399,9 @@
 
     .btn-apikey {
       padding: 3px 8px;
-      background: #ffffff;
-      border: 1px solid #d1d5db;
-      color: #4b5563;
+      background: var(--btn-secondary-bg);
+      border: 1px solid var(--border-btn);
+      color: var(--text-main);
       border-radius: 6px;
       font-size: 11px;
       font-weight: 600;
@@ -343,13 +410,15 @@
       align-items: center;
       gap: 3px;
     }
-    .btn-apikey:hover { background: #f3f4f6; color: #111; }
+    .btn-apikey:hover {
+      background: var(--btn-secondary-hover);
+    }
 
     /* Document Bar */
     #doc-bar {
       padding: 5px 10px;
-      background: #f8fafc;
-      border-bottom: 1px solid #e2e8f0;
+      background: var(--bg-header);
+      border-bottom: 1px solid var(--border-main);
       display: flex;
       align-items: center;
       justify-content: space-between;
@@ -369,9 +438,9 @@
       align-items: center;
       gap: 4px;
       padding: 2px 6px;
-      background: #e0e7ff;
-      color: #3730a3;
-      border: 1px solid #c7d2fe;
+      background: var(--bg-card);
+      color: var(--text-main);
+      border: 1px solid var(--border-btn);
       border-radius: 4px;
       font-size: 11px;
       font-weight: 600;
@@ -384,7 +453,7 @@
     .btn-remove-doc {
       background: transparent;
       border: none;
-      color: #4338ca;
+      color: var(--text-main);
       font-weight: 700;
       cursor: pointer;
       font-size: 11px;
@@ -393,9 +462,9 @@
 
     .btn-load-doc {
       padding: 4px 8px;
-      border: 1px dashed #cbd5e1;
-      background: #ffffff;
-      color: #475569;
+      border: 1px dashed var(--border-btn);
+      background: var(--btn-secondary-bg);
+      color: var(--text-muted);
       font-size: 11px;
       font-weight: 600;
       border-radius: 6px;
@@ -407,16 +476,15 @@
       flex-shrink: 0;
     }
     .btn-load-doc:hover {
-      background: #f1f5f9;
-      border-color: #94a3b8;
-      color: #0f172a;
+      background: var(--btn-secondary-hover);
+      color: var(--text-main);
     }
 
     /* Action Bar */
     #quick-bar {
       padding: 7px 10px;
-      background: #ffffff;
-      border-bottom: 1px solid #f3f4f6;
+      background: var(--bg-app);
+      border-bottom: 1px solid var(--border-main);
       display: flex;
       gap: 5px;
       flex-shrink: 0;
@@ -425,9 +493,9 @@
     .quick-btn {
       flex: 1.2;
       padding: 6px 8px;
-      border: 1px solid #4338ca;
-      background: #4f46e5;
-      color: #ffffff;
+      border: 1px solid var(--btn-primary-bg);
+      background: var(--btn-primary-bg);
+      color: var(--btn-primary-fg);
       font-size: 11.5px;
       font-weight: 700;
       border-radius: 6px;
@@ -438,20 +506,20 @@
       gap: 4px;
       transition: all 0.1s;
     }
-    .quick-btn:hover { background: #4338ca; }
+    .quick-btn:hover { background: var(--btn-primary-hover); }
     .quick-btn:active { transform: scale(0.97); }
 
     .btn-secondary {
       padding: 6px 8px;
-      border: 1px solid #e5e7eb;
-      background: #ffffff;
-      color: #4b5563;
+      border: 1px solid var(--border-btn);
+      background: var(--btn-secondary-bg);
+      color: var(--btn-secondary-fg);
       font-size: 11px;
       font-weight: 600;
       border-radius: 6px;
       cursor: pointer;
     }
-    .btn-secondary:hover { background: #f3f4f6; }
+    .btn-secondary:hover { background: var(--btn-secondary-hover); }
 
     /* Chat Messages */
     #chat {
@@ -461,7 +529,7 @@
       display: flex;
       flex-direction: column;
       gap: 8px;
-      background: #ffffff;
+      background: var(--bg-app);
     }
 
     .msg {
@@ -475,26 +543,26 @@
     }
 
     .msg.user {
-      background: #eef2ff;
-      color: #3730a3;
+      background: var(--msg-user-bg);
+      color: var(--msg-user-fg);
       align-self: flex-end;
       border-bottom-right-radius: 2px;
       font-weight: 500;
-      border: 1px solid #c7d2fe;
+      border: 1px solid var(--msg-user-border);
     }
 
     .msg.ai {
-      background: #f9fafb;
-      color: #111827;
+      background: var(--msg-ai-bg);
+      color: var(--msg-ai-fg);
       align-self: flex-start;
       border-bottom-left-radius: 2px;
-      border: 1px solid #e5e7eb;
+      border: 1px solid var(--msg-ai-border);
     }
 
     .msg.hint {
-      background: #f0fdf4;
-      border: 1px dashed #86efac;
-      color: #166534;
+      background: var(--msg-hint-bg);
+      border: 1px dashed var(--msg-hint-border);
+      color: var(--msg-hint-fg);
       font-size: 11.5px;
       align-self: center;
       text-align: center;
@@ -502,9 +570,9 @@
     }
 
     .msg.warning {
-      background: #fffbeb;
-      border: 1px solid #fef3c7;
-      color: #92400e;
+      background: var(--bg-card);
+      border: 1px solid var(--border-btn);
+      color: var(--text-main);
       font-size: 12px;
     }
 
@@ -513,14 +581,14 @@
       align-items: center;
       gap: 6px;
       font-size: 12px;
-      color: #6b7280;
+      color: var(--text-muted);
     }
 
     .loading-dot {
       display: inline-block;
       width: 5px;
       height: 5px;
-      background: #4f46e5;
+      background: var(--text-main);
       border-radius: 50%;
       animation: blink 1.2s infinite;
     }
@@ -531,8 +599,8 @@
     /* Footer Input */
     #footer {
       padding: 7px 10px;
-      background: #f9fafb;
-      border-top: 1px solid #e5e7eb;
+      background: var(--bg-header);
+      border-top: 1px solid var(--border-main);
       display: flex;
       gap: 6px;
       align-items: flex-end;
@@ -542,7 +610,7 @@
     #footer textarea {
       flex: 1;
       padding: 7px 9px;
-      border: 1px solid #d1d5db;
+      border: 1px solid var(--border-btn);
       border-radius: 6px;
       font-family: inherit;
       font-size: 12px;
@@ -551,18 +619,19 @@
       max-height: 90px;
       outline: none;
       line-height: 1.35;
-      background: #ffffff;
+      background: var(--bg-input);
+      color: var(--text-main);
     }
     #footer textarea:focus {
-      border-color: #4f46e5;
+      border-color: var(--text-main);
     }
 
     #send-btn {
       width: 32px;
       height: 32px;
       border: none;
-      background: #4f46e5;
-      color: #ffffff;
+      background: var(--btn-primary-bg);
+      color: var(--btn-primary-fg);
       border-radius: 6px;
       cursor: pointer;
       font-size: 14px;
@@ -581,7 +650,7 @@
       left: 0;
       width: 100%;
       height: 100%;
-      background: rgba(15, 23, 42, 0.5);
+      background: rgba(0, 0, 0, 0.6);
       backdrop-filter: blur(4px);
       z-index: 10000;
       display: none;
@@ -592,11 +661,13 @@
     #api-modal.active { display: flex; }
 
     .modal-card {
-      background: #ffffff;
+      background: var(--modal-bg);
+      color: var(--text-main);
       width: 100%;
       max-width: 380px;
       border-radius: 12px;
-      box-shadow: 0 20px 25px -5px rgba(0,0,0,0.2);
+      box-shadow: 0 20px 25px -5px rgba(0,0,0,0.4);
+      border: 1px solid var(--border-main);
       padding: 18px;
       display: flex;
       flex-direction: column;
@@ -606,7 +677,7 @@
     .modal-card h3 {
       font-size: 14px;
       font-weight: 700;
-      color: #1e1b4b;
+      color: var(--text-main);
       display: flex;
       align-items: center;
       gap: 6px;
@@ -614,7 +685,7 @@
 
     .modal-card p {
       font-size: 11.5px;
-      color: #4b5563;
+      color: var(--text-muted);
       line-height: 1.45;
     }
 
@@ -622,14 +693,16 @@
     .modal-card input[type="text"] {
       width: 100%;
       padding: 8px 10px;
-      border: 1.5px solid #d1d5db;
+      border: 1px solid var(--border-btn);
+      background: var(--bg-input);
+      color: var(--text-main);
       border-radius: 6px;
       font-size: 12px;
       outline: none;
       font-family: inherit;
     }
     .modal-card input:focus {
-      border-color: #4f46e5;
+      border-color: var(--text-main);
     }
 
     .modal-actions {
@@ -640,21 +713,21 @@
 
     .btn-modal-save {
       padding: 7px 14px;
-      background: #4f46e5;
-      color: #ffffff;
+      background: var(--btn-primary-bg);
+      color: var(--btn-primary-fg);
       border: none;
       border-radius: 6px;
       font-weight: 600;
       font-size: 11.5px;
       cursor: pointer;
     }
-    .btn-modal-save:hover { background: #4338ca; }
+    .btn-modal-save:hover { opacity: 0.85; }
 
     .btn-modal-cancel {
       padding: 7px 12px;
-      background: #f3f4f6;
-      color: #4b5563;
-      border: 1px solid #e5e7eb;
+      background: var(--btn-secondary-bg);
+      color: var(--text-main);
+      border: 1px solid var(--border-btn);
       border-radius: 6px;
       font-weight: 600;
       font-size: 11.5px;
@@ -723,12 +796,12 @@
         Para usar la app necesitas tu propia clave de Google Gemini (es <strong>100% gratuita</strong> y se crea en 30 segundos con tu cuenta de Google).
       </p>
       <input type="password" id="modal-apikey-input" placeholder="Pega tu API Key de Gemini aqui..." />
-      <div style="font-size:11px; color:#6366f1; margin-bottom:8px;">
+      <div style="font-size:11px; color:var(--text-muted); margin-bottom:8px;">
         -> Conseguila gratis en: <strong>aistudio.google.com/apikey</strong>
       </div>
 
-      <hr style="border:0; border-top:1px solid #e2e8f0; margin:8px 0;" />
-      <h3 style="font-size:13px; color:#1e1b4b; margin-bottom:4px;">Motor Antigravity (Local o Remoto)</h3>
+      <hr style="border:0; border-top:1px solid var(--border-main); margin:8px 0;" />
+      <h3 style="font-size:13px; color:var(--text-main); margin-bottom:4px;">Motor Antigravity (Local o Remoto)</h3>
       <p style="font-size:11px; color:#64748b; margin-bottom:8px;">
         Elige si ejecutar los calculos en esta maquina o derivarlos a tu PC de escritorio remota:
       </p>
@@ -753,12 +826,12 @@
 
   <!-- Remote Modal -->
   <div id="remote-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:9999; align-items:center; justify-content:center;">
-    <div class="modal-card" style="background:#fff; border-radius:12px; padding:18px; max-width:320px; box-shadow:0 10px 25px rgba(0,0,0,0.2);">
-      <h3 style="font-size:14px; color:#1e1b4b; margin-bottom:6px;">Antigravity Remote</h3>
-      <p style="font-size:11px; color:#475569; margin-bottom:10px;">
+    <div class="modal-card" style="background:var(--modal-bg); border-radius:12px; padding:18px; max-width:320px; box-shadow:0 10px 25px rgba(0,0,0,0.3); border:1px solid var(--border-main);">
+      <h3 style="font-size:14px; color:var(--text-main); margin-bottom:6px;">Antigravity Remote</h3>
+      <p style="font-size:11px; color:var(--text-muted); margin-bottom:10px;">
         Abre este enlace en tu celular o notebook remota para ver las respuestas en vivo y descargar Word/PDF:
       </p>
-      <div id="remote-url-box" style="background:#f1f5f9; padding:8px 10px; border-radius:6px; font-family:monospace; font-size:11px; color:#1e293b; word-break:break-all; border:1px solid #e2e8f0; margin-bottom:12px;">
+      <div id="remote-url-box" style="background:var(--bg-card); padding:8px 10px; border-radius:6px; font-family:monospace; font-size:11px; color:var(--text-main); word-break:break-all; border:1px solid var(--border-btn); margin-bottom:12px;">
         http://localhost:7777/remote
       </div>
       <div style="display:flex; gap:8px;">
@@ -778,7 +851,7 @@
   <div id="header">
     <div class="status-group">
       <button class="btn-sidebar-toggle" id="btn-open-sidebar" title="Abrir gestor de proyectos y chats">Chats</button>
-      <select id="engine-select" style="background:#fff; border:1px solid #cbd5e1; border-radius:6px; font-size:11px; font-weight:600; color:#4338ca; padding:3px 6px; outline:none; cursor:pointer;" title="Elige el motor de inteligencia">
+      <select id="engine-select" style="background:var(--bg-input); border:1px solid var(--border-btn); border-radius:6px; font-size:11px; font-weight:600; color:var(--text-main); padding:3px 6px; outline:none; cursor:pointer;" title="Elige el motor de inteligencia">
         <optgroup label="Antigravity">
           <option value="gemini-3.8-flash-high" selected>Gemini 3.8 Flash HIGH</option>
           <option value="claude-sonnet-4.6">Claude Sonnet 4.6 (Thinking)</option>
@@ -796,11 +869,12 @@
       <span>Opacidad:</span>
       <input type="range" id="opacity-slider" min="15" max="100" value="95" />
       <span id="opacity-val">95%</span>
-      <button class="btn-apikey" id="btn-open-remote" style="background:#e0e7ff; color:#3730a3; border-color:#c7d2fe;" title="Abrir Ghost Remote para celular">
+      <button class="btn-apikey" id="btn-theme-toggle" title="Alternar modo claro / oscuro blanco y negro">☾ B/N</button>
+      <button class="btn-apikey" id="btn-open-remote" title="Abrir Ghost Remote para celular">
         Remoto
       </button>
       <button class="btn-apikey" id="btn-open-apikey" title="Configurar tu clave de Google Gemini">
-        API Key
+        ⚿ API Key
       </button>
     </div>
   </div>
@@ -808,9 +882,9 @@
   <!-- Document Bar & Active Chat Subtitle -->
   <div id="doc-bar">
     <div class="doc-status" id="doc-status-container">
-      <span id="active-chat-indicator" style="font-size:11px; font-weight:600; color:#4338ca; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:210px;" title="Conversacion activa">Chat: General</span>
-      <span style="color:#cbd5e1; font-size:10px;">|</span>
-      <span style="color:#64748b; font-size:11px;">Arrastra un documento aqui -></span>
+      <span id="active-chat-indicator" style="font-size:11px; font-weight:600; color:var(--text-main); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:210px;" title="Conversacion activa">Chat: General</span>
+      <span style="color:var(--border-btn); font-size:10px;">|</span>
+      <span style="color:var(--text-muted); font-size:11px;">Arrastra un documento aqui -></span>
     </div>
     <button class="btn-load-doc" id="btn-load-doc" title="Carga el PDF o resumen del examen">
       Cargar PDF / Resumen
@@ -823,10 +897,10 @@
       Preguntar lo Seleccionado
     </button>
     <button class="btn-secondary" id="btn-clip" title="Consulta lo que tengas copiado">
-      Portapapeles
+      ⎘ Portapapeles
     </button>
-    <button class="btn-secondary" id="btn-type-toggle" title="Activa el teclado para tipear manualmente">
-      Tipear
+    <button class="btn-secondary" id="btn-type-toggle" title="Activa o desactiva el teclado para tipear">
+      ✎ Tipear: OFF
     </button>
     <button class="btn-secondary" id="btn-clear" title="Limpiar">Limpiar</button>
   </div>
@@ -993,6 +1067,39 @@
     }
     if (engineSelect) {
       engineSelect.addEventListener("change", (e) => handleEngineChange(e.target.value));
+    }
+
+    // Monochrome Theme Management (Light / Dark B&W)
+    const btnThemeToggle = document.getElementById("btn-theme-toggle");
+    const STORAGE_THEME = "ghost_theme";
+
+    function applyTheme(theme) {
+      if (theme === "dark") {
+        document.body.classList.remove("theme-light");
+        document.body.classList.add("theme-dark");
+        if (btnThemeToggle) {
+          btnThemeToggle.textContent = "☀ B/N";
+          btnThemeToggle.title = "Cambiar a modo claro blanco y negro";
+        }
+      } else {
+        document.body.classList.remove("theme-dark");
+        document.body.classList.add("theme-light");
+        if (btnThemeToggle) {
+          btnThemeToggle.textContent = "☾ B/N";
+          btnThemeToggle.title = "Cambiar a modo oscuro blanco y negro";
+        }
+      }
+      localStorage.setItem(STORAGE_THEME, theme);
+    }
+
+    const savedTheme = localStorage.getItem(STORAGE_THEME) || "light";
+    applyTheme(savedTheme);
+
+    if (btnThemeToggle) {
+      btnThemeToggle.addEventListener("click", () => {
+        const isDark = document.body.classList.contains("theme-dark");
+        applyTheme(isDark ? "light" : "dark");
+      });
     }
 
     // --- SIDEBAR DRAWER CONTROLS ---
@@ -1329,9 +1436,9 @@
         btnLoadDoc.innerHTML = `Agregar Mas (${activeDocuments.length})`;
       } else {
         docStatusContainer.innerHTML = `
-          <span id="active-chat-indicator" style="font-size:11px; font-weight:600; color:#4338ca; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:210px;" title="Conversacion activa">Chat: ${currentChatTitle || 'General'}</span>
-          <span style="color:#cbd5e1; font-size:10px;">|</span>
-          <span style="color:#64748b; font-size:11px;">Arrastra un documento aqui -></span>
+          <span id="active-chat-indicator" style="font-size:11px; font-weight:600; color:var(--text-main); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:210px;" title="Conversacion activa">Chat: ${currentChatTitle || 'General'}</span>
+          <span style="color:var(--border-btn); font-size:10px;">|</span>
+          <span style="color:var(--text-muted); font-size:11px;">Arrastra un documento aqui -></span>
         `;
         btnLoadDoc.innerHTML = "Cargar PDF / Resumen";
       }
@@ -1366,13 +1473,13 @@
       if (typingMode) {
         focusIndicator.textContent = "MODO TECLADO";
         focusIndicator.classList.add("active");
-        btnTypeToggle.textContent = "Bloquear Foco";
+        btnTypeToggle.textContent = "✎ Tipear: ON";
         await window.ghostAPI.setFocusMode(true);
         input.focus();
       } else {
         focusIndicator.textContent = "NO-FOCO (SEGURO)";
         focusIndicator.classList.remove("active");
-        btnTypeToggle.textContent = "Tipear";
+        btnTypeToggle.textContent = "✎ Tipear: OFF";
         input.blur();
         await window.ghostAPI.setFocusMode(false);
       }
@@ -1387,12 +1494,12 @@
       if (typingMode) {
         focusIndicator.textContent = "MODO TECLADO";
         focusIndicator.classList.add("active");
-        btnTypeToggle.textContent = "Bloquear Foco";
+        btnTypeToggle.textContent = "✎ Tipear: ON";
         input.focus();
       } else {
         focusIndicator.textContent = "NO-FOCO (SEGURO)";
         focusIndicator.classList.remove("active");
-        btnTypeToggle.textContent = "Tipear";
+        btnTypeToggle.textContent = "✎ Tipear: OFF";
         input.blur();
       }
     });
