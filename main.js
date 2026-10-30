@@ -348,12 +348,32 @@ ${historyText ? `=== HISTORIAL RECIENTE DE LA CONVERSACIÓN ===\n${historyText}\
 ${message}`;
   }
 
-  const modelsToTry = [
-    "gemini-2.5-flash",
-    "gemini-2.0-flash",
-    "gemini-1.5-flash",
-    "gemini-flash-latest"
-  ];
+  let modelsToTry = [];
+  let generationConfig = { temperature: 0.2, maxOutputTokens: 2048 };
+
+  if (engine === "gemini-3.8-flash-high" || engine === "gemini-3.8-flash") {
+    modelsToTry = [
+      "gemini-3.8-flash",
+      "gemini-3.5-flash",
+      "gemini-3.5-flash-lite",
+      "gemini-2.5-flash",
+      "gemini-flash-latest"
+    ];
+    generationConfig = {
+      temperature: 0.2,
+      maxOutputTokens: 4096,
+      thinkingConfig: { thinkingBudget: 2048 }
+    };
+  } else {
+    modelsToTry = [
+      "gemini-3.5-flash",
+      "gemini-3.5-flash-lite",
+      "gemini-3.8-flash",
+      "gemini-2.5-flash",
+      "gemini-flash-latest"
+    ];
+    generationConfig = { temperature: 0.2, maxOutputTokens: 2048 };
+  }
   let lastError = null;
 
   for (const model of modelsToTry) {
@@ -361,20 +381,37 @@ ${message}`;
       log(`Calling model: ${model}`);
       const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
 
-      const res = await fetch(url, {
+      let reqBody = {
+        contents: [{ parts: [{ text: promptText }] }],
+        generationConfig: generationConfig
+      };
+
+      let res = await fetch(url, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           "X-goog-api-key": apiKey,
         },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: promptText }] }],
-          generationConfig: { temperature: 0.2, maxOutputTokens: 2048 },
-        }),
+        body: JSON.stringify(reqBody),
         signal: AbortSignal.timeout(8000),
       });
 
-      const data = await res.json();
+      let data = await res.json();
+
+      // If thinkingConfig is unsupported on this specific model variant, retry cleanly without it
+      if (data.error && reqBody.generationConfig.thinkingConfig) {
+        reqBody.generationConfig = { temperature: 0.2, maxOutputTokens: 2048 };
+        res = await fetch(url, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-goog-api-key": apiKey,
+          },
+          body: JSON.stringify(reqBody),
+          signal: AbortSignal.timeout(8000),
+        });
+        data = await res.json();
+      }
 
       if (data.error) {
         log(`Model ${model} returned error: ${data.error.message} (code ${data.error.code})`);
