@@ -329,46 +329,69 @@
     #header {
       background: var(--bg-header);
       border-bottom: 1px solid var(--border-main);
-      padding: 6px 10px;
+      padding: 5px 8px;
       display: flex;
       align-items: center;
       justify-content: space-between;
-      gap: 8px;
+      gap: 5px;
       flex-shrink: 0;
+      width: 100%;
+      overflow: hidden;
     }
 
     .status-group {
       display: flex;
       align-items: center;
-      gap: 6px;
+      gap: 4px;
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
     }
 
     .btn-sidebar-toggle {
-      padding: 4px 9px;
+      padding: 4px 7px;
       background: var(--btn-secondary-bg);
       color: var(--text-main);
       border: 1px solid var(--border-btn);
       border-radius: 6px;
-      font-size: 11.5px;
+      font-size: 11px;
       font-weight: 700;
       cursor: pointer;
-      display: flex;
-      align-items: center;
-      gap: 4px;
+      flex-shrink: 0;
       transition: background 0.15s;
     }
     .btn-sidebar-toggle:hover {
       background: var(--btn-secondary-hover);
     }
 
-    #focus-indicator {
-      font-size: 10px;
-      padding: 3px 6px;
+    #engine-select {
+      flex: 1;
+      min-width: 60px;
+      max-width: 140px;
+      padding: 3px 5px;
+      background: var(--bg-input);
+      border: 1px solid var(--border-btn);
       border-radius: 6px;
+      font-size: 11px;
       font-weight: 600;
+      color: var(--text-main);
+      outline: none;
+      cursor: pointer;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      overflow: hidden;
+    }
+
+    #focus-indicator {
+      font-size: 9.5px;
+      padding: 2px 5px;
+      border-radius: 5px;
+      font-weight: 700;
       background: var(--focus-bg);
       color: var(--focus-fg);
       border: 1px solid var(--focus-border);
+      flex-shrink: 0;
+      white-space: nowrap;
     }
 
     #focus-indicator.active {
@@ -377,28 +400,45 @@
       border-color: var(--focus-active-border);
     }
 
+    .btn-host-pill {
+      font-size: 10px;
+      font-weight: 700;
+      padding: 2px 6px;
+      border-radius: 5px;
+      border: 1px solid var(--border-btn);
+      background: var(--btn-secondary-bg);
+      color: var(--text-main);
+      cursor: pointer;
+      flex-shrink: 0;
+      transition: background 0.15s;
+    }
+    .btn-host-pill:hover {
+      background: var(--btn-secondary-hover);
+    }
+
     .opacity-control {
       display: flex;
       align-items: center;
-      gap: 6px;
-      font-size: 11px;
-      color: var(--text-muted);
-      font-weight: 600;
+      gap: 4px;
+      flex-shrink: 0;
     }
 
     .opacity-control input[type="range"] {
-      width: 55px;
+      width: 40px;
       cursor: pointer;
       accent-color: var(--text-main);
     }
 
     #opacity-val {
-      min-width: 28px;
+      min-width: 22px;
       text-align: right;
+      font-size: 9.5px;
+      font-weight: 600;
+      color: var(--text-muted);
     }
 
     .btn-apikey {
-      padding: 3px 8px;
+      padding: 3px 6px;
       background: var(--btn-secondary-bg);
       border: 1px solid var(--border-btn);
       color: var(--text-main);
@@ -408,29 +448,39 @@
       cursor: pointer;
       display: flex;
       align-items: center;
-      gap: 3px;
+      justify-content: center;
+      flex-shrink: 0;
     }
     .btn-apikey:hover {
       background: var(--btn-secondary-hover);
     }
 
+    .btn-icon-header {
+      width: 26px;
+      height: 24px;
+      padding: 0;
+      font-size: 12px;
+    }
+
     /* Document Bar */
     #doc-bar {
-      padding: 5px 10px;
+      padding: 4px 8px;
       background: var(--bg-header);
       border-bottom: 1px solid var(--border-main);
       display: flex;
       align-items: center;
       justify-content: space-between;
-      gap: 8px;
+      gap: 6px;
+      flex-shrink: 0;
     }
 
     .doc-status {
       display: flex;
       align-items: center;
-      gap: 6px;
+      gap: 5px;
       overflow: hidden;
       flex: 1;
+      min-width: 0;
     }
 
     .doc-tag {
@@ -461,13 +511,13 @@
     }
 
     .btn-load-doc {
-      padding: 4px 8px;
+      padding: 3px 7px;
       border: 1px dashed var(--border-btn);
       background: var(--btn-secondary-bg);
       color: var(--text-muted);
       font-size: 11px;
       font-weight: 600;
-      border-radius: 6px;
+      border-radius: 5px;
       cursor: pointer;
       display: inline-flex;
       align-items: center;
@@ -482,17 +532,19 @@
 
     /* Action Bar */
     #quick-bar {
-      padding: 7px 10px;
+      padding: 6px 8px;
       background: var(--bg-app);
       border-bottom: 1px solid var(--border-main);
       display: flex;
       gap: 5px;
+      align-items: center;
       flex-shrink: 0;
     }
 
     .quick-btn {
-      flex: 1.2;
-      padding: 6px 8px;
+      flex: 1;
+      min-width: 0;
+      padding: 6px 10px;
       border: 1px solid var(--btn-primary-bg);
       background: var(--btn-primary-bg);
       color: var(--btn-primary-fg);
@@ -503,23 +555,38 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: 4px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
       transition: all 0.1s;
     }
     .quick-btn:hover { background: var(--btn-primary-hover); }
     .quick-btn:active { transform: scale(0.97); }
 
-    .btn-secondary {
-      padding: 6px 8px;
+    .btn-icon-only {
+      width: 32px;
+      height: 30px;
+      padding: 0;
       border: 1px solid var(--border-btn);
       background: var(--btn-secondary-bg);
       color: var(--btn-secondary-fg);
-      font-size: 11px;
-      font-weight: 600;
+      font-size: 13px;
       border-radius: 6px;
       cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      transition: all 0.1s ease;
     }
-    .btn-secondary:hover { background: var(--btn-secondary-hover); }
+    .btn-icon-only:hover {
+      background: var(--btn-secondary-hover);
+    }
+    .btn-icon-only.active {
+      background: var(--btn-primary-bg);
+      color: var(--btn-primary-fg);
+      border-color: var(--btn-primary-bg);
+    }
 
     /* Chat Messages */
     #chat {
@@ -782,7 +849,7 @@
       </div>
 
       <div class="sidebar-footer">
-        <span id="sidebar-host-label">Modo Local</span>
+        <button id="sidebar-host-btn" class="btn-sidebar-close" style="font-size:10.5px; padding:2px 7px; cursor:pointer;" title="Clic para configurar Modo Local / Remoto">Modo: Local</button>
         <span id="sidebar-total-chats">0 chats</span>
       </div>
     </div>
@@ -791,7 +858,7 @@
   <!-- API Key & Host Modal -->
   <div id="api-modal">
     <div class="modal-card">
-      <h3>Configurar Gemini API Key</h3>
+      <h3>Configurar Motor y Claves</h3>
       <p>
         Para usar la app necesitas tu propia clave de Google Gemini (es <strong>100% gratuita</strong> y se crea en 30 segundos con tu cuenta de Google).
       </p>
@@ -801,7 +868,7 @@
       </div>
 
       <hr style="border:0; border-top:1px solid var(--border-main); margin:8px 0;" />
-      <h3 style="font-size:13px; color:var(--text-main); margin-bottom:4px;">Motor Antigravity (Local o Remoto)</h3>
+      <h3 style="font-size:13px; color:var(--text-main); margin-bottom:4px;">Modo de Ejecución (Local vs Remoto)</h3>
       <p style="font-size:11px; color:#64748b; margin-bottom:8px;">
         Elige si ejecutar los calculos en esta maquina o derivarlos a tu PC de escritorio remota:
       </p>
@@ -824,23 +891,6 @@
     </div>
   </div>
 
-  <!-- Remote Modal -->
-  <div id="remote-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:9999; align-items:center; justify-content:center;">
-    <div class="modal-card" style="background:var(--modal-bg); border-radius:12px; padding:18px; max-width:320px; box-shadow:0 10px 25px rgba(0,0,0,0.3); border:1px solid var(--border-main);">
-      <h3 style="font-size:14px; color:var(--text-main); margin-bottom:6px;">Antigravity Remote</h3>
-      <p style="font-size:11px; color:var(--text-muted); margin-bottom:10px;">
-        Abre este enlace en tu celular o notebook remota para ver las respuestas en vivo y descargar Word/PDF:
-      </p>
-      <div id="remote-url-box" style="background:var(--bg-card); padding:8px 10px; border-radius:6px; font-family:monospace; font-size:11px; color:var(--text-main); word-break:break-all; border:1px solid var(--border-btn); margin-bottom:12px;">
-        http://localhost:7777/remote
-      </div>
-      <div style="display:flex; gap:8px;">
-        <button class="btn-modal-cancel" id="btn-remote-close" style="flex:1;">Cerrar</button>
-        <button class="btn-modal-save" id="btn-remote-copy" style="flex:1;">Copiar</button>
-      </div>
-    </div>
-  </div>
-
   <!-- Drag and Drop Overlay -->
   <div id="drop-overlay">
     <div class="drop-text">Solta tu PDF o apunte aca</div>
@@ -851,7 +901,7 @@
   <div id="header">
     <div class="status-group">
       <button class="btn-sidebar-toggle" id="btn-open-sidebar" title="Abrir gestor de proyectos y chats">Chats</button>
-      <select id="engine-select" style="background:var(--bg-input); border:1px solid var(--border-btn); border-radius:6px; font-size:11px; font-weight:600; color:var(--text-main); padding:3px 6px; outline:none; cursor:pointer;" title="Elige el motor de inteligencia">
+      <select id="engine-select" title="Elige el motor de inteligencia">
         <optgroup label="Antigravity">
           <option value="gemini-3.8-flash-high" selected>Gemini 3.8 Flash HIGH</option>
           <option value="claude-sonnet-4.6">Claude Sonnet 4.6 (Thinking)</option>
@@ -863,19 +913,14 @@
           <option value="gemini-3.5-flash">Gemini 3.5 Flash</option>
         </optgroup>
       </select>
-      <span id="focus-indicator" title="Tocar esta ventana NO le quita el foco a tu navegador">NO-FOCO (SEGURO)</span>
+      <span id="focus-indicator" title="Tocar esta ventana NO le quita el foco a tu navegador">NO-FOCO</span>
     </div>
     <div class="opacity-control">
-      <span>Opacidad:</span>
-      <input type="range" id="opacity-slider" min="15" max="100" value="95" />
+      <button class="btn-host-pill" id="header-host-badge" title="Modo actual. Clic para cambiar entre Modo Local y Remoto">Local</button>
+      <input type="range" id="opacity-slider" min="15" max="100" value="95" title="Opacidad" />
       <span id="opacity-val">95%</span>
-      <button class="btn-apikey" id="btn-theme-toggle" title="Alternar modo claro / oscuro blanco y negro">☾ B/N</button>
-      <button class="btn-apikey" id="btn-open-remote" title="Abrir Ghost Remote para celular">
-        Remoto
-      </button>
-      <button class="btn-apikey" id="btn-open-apikey" title="Configurar tu clave de Google Gemini">
-        ⚿ API Key
-      </button>
+      <button class="btn-apikey btn-icon-header" id="btn-theme-toggle" title="Modo Claro / Oscuro Blanco y Negro">☾</button>
+      <button class="btn-apikey btn-icon-header" id="btn-open-apikey" title="Configurar API Key y Modo Local/Remoto">⚿</button>
     </div>
   </div>
 
@@ -894,15 +939,17 @@
   <!-- Action Bar -->
   <div id="quick-bar">
     <button class="quick-btn" id="btn-select" title="Selecciona la pregunta en tu navegador y toca este boton (sin tocar el teclado)">
-      Preguntar lo Seleccionado
+      Preguntar
     </button>
-    <button class="btn-secondary" id="btn-clip" title="Consulta lo que tengas copiado">
-      ⎘ Portapapeles
+    <button class="btn-icon-only" id="btn-clip" title="Preguntar lo que tengas copiado en el portapapeles">
+      ⎘
     </button>
-    <button class="btn-secondary" id="btn-type-toggle" title="Activa o desactiva el teclado para tipear">
-      ✎ Tipear: OFF
+    <button class="btn-icon-only" id="btn-type-toggle" title="Activar/desactivar teclado para tipear (Ctrl+Shift+Space)">
+      ✎
     </button>
-    <button class="btn-secondary" id="btn-clear" title="Limpiar">Limpiar</button>
+    <button class="btn-icon-only" id="btn-clear" title="Limpiar conversación">
+      🧹
+    </button>
   </div>
 
   <!-- Chat -->
@@ -960,7 +1007,8 @@
     const sidebarEngineSelect = document.getElementById("sidebar-engine-select");
     const engineSelect = document.getElementById("engine-select");
     const activeChatIndicator = document.getElementById("active-chat-indicator");
-    const sidebarHostLabel = document.getElementById("sidebar-host-label");
+    const sidebarHostBtn = document.getElementById("sidebar-host-btn");
+    const headerHostBadge = document.getElementById("header-host-badge");
     const sidebarTotalChats = document.getElementById("sidebar-total-chats");
 
     // State
@@ -992,17 +1040,43 @@
 
     function syncHostUI() {
       const mode = getSavedHostMode();
+      const remoteHost = getSavedRemoteHost();
       if (mode === "remote") {
         if (radioHostRemote) radioHostRemote.checked = true;
         if (modalRemoteHostInput) modalRemoteHostInput.style.display = "block";
-        if (sidebarHostLabel) sidebarHostLabel.textContent = `Modo Remoto (${getSavedRemoteHost()})`;
+        if (sidebarHostBtn) {
+          sidebarHostBtn.textContent = "Modo: Remoto";
+          sidebarHostBtn.title = `Modo Remoto activo (${remoteHost}). Clic para cambiar a Local.`;
+        }
+        if (headerHostBadge) {
+          headerHostBadge.textContent = "Remoto";
+          headerHostBadge.title = `Modo Remoto activo (${remoteHost}). Clic para cambiar a Local.`;
+        }
       } else {
         if (radioHostLocal) radioHostLocal.checked = true;
         if (modalRemoteHostInput) modalRemoteHostInput.style.display = "none";
-        if (sidebarHostLabel) sidebarHostLabel.textContent = "Modo Local";
+        if (sidebarHostBtn) {
+          sidebarHostBtn.textContent = "Modo: Local";
+          sidebarHostBtn.title = "Modo Local activo (esta PC). Clic para cambiar a Remoto.";
+        }
+        if (headerHostBadge) {
+          headerHostBadge.textContent = "Local";
+          headerHostBadge.title = "Modo Local activo (esta PC). Clic para cambiar a Remoto.";
+        }
       }
-      if (modalRemoteHostInput) modalRemoteHostInput.value = getSavedRemoteHost();
+      if (modalRemoteHostInput) modalRemoteHostInput.value = remoteHost;
     }
+
+    function openConfigModal() {
+      modalApiKeyInput.value = getSavedApiKey();
+      syncHostUI();
+      apiModal.classList.add("active");
+      modalApiKeyInput.focus();
+    }
+
+    if (btnOpenApiKey) btnOpenApiKey.addEventListener("click", openConfigModal);
+    if (headerHostBadge) headerHostBadge.addEventListener("click", openConfigModal);
+    if (sidebarHostBtn) sidebarHostBtn.addEventListener("click", openConfigModal);
 
     if (radioHostLocal) {
       radioHostLocal.addEventListener("change", () => {
@@ -1018,14 +1092,6 @@
         }
       });
     }
-
-    // Modal Events
-    btnOpenApiKey.addEventListener("click", () => {
-      modalApiKeyInput.value = getSavedApiKey();
-      syncHostUI();
-      apiModal.classList.add("active");
-      modalApiKeyInput.focus();
-    });
 
     btnModalCancel.addEventListener("click", () => {
       apiModal.classList.remove("active");
@@ -1078,15 +1144,15 @@
         document.body.classList.remove("theme-light");
         document.body.classList.add("theme-dark");
         if (btnThemeToggle) {
-          btnThemeToggle.textContent = "☀ B/N";
-          btnThemeToggle.title = "Cambiar a modo claro blanco y negro";
+          btnThemeToggle.textContent = "☀";
+          btnThemeToggle.title = "Cambiar a modo claro B/N";
         }
       } else {
         document.body.classList.remove("theme-dark");
         document.body.classList.add("theme-light");
         if (btnThemeToggle) {
-          btnThemeToggle.textContent = "☾ B/N";
-          btnThemeToggle.title = "Cambiar a modo oscuro blanco y negro";
+          btnThemeToggle.textContent = "☾";
+          btnThemeToggle.title = "Cambiar a modo oscuro B/N";
         }
       }
       localStorage.setItem(STORAGE_THEME, theme);
@@ -1467,19 +1533,22 @@
       }
     });
 
-    // Typing Mode Toggle
+    // Typing Mode Toggle (Icon-only ✎ with active toggle style)
     async function setTypingMode(enable) {
       typingMode = enable;
+      btnTypeToggle.textContent = "✎";
       if (typingMode) {
-        focusIndicator.textContent = "MODO TECLADO";
+        focusIndicator.textContent = "TECLADO";
         focusIndicator.classList.add("active");
-        btnTypeToggle.textContent = "✎ Tipear: ON";
+        btnTypeToggle.classList.add("active");
+        btnTypeToggle.title = "Tipear: ACTIVO (Toca para desactivar foco)";
         await window.ghostAPI.setFocusMode(true);
         input.focus();
       } else {
-        focusIndicator.textContent = "NO-FOCO (SEGURO)";
+        focusIndicator.textContent = "NO-FOCO";
         focusIndicator.classList.remove("active");
-        btnTypeToggle.textContent = "✎ Tipear: OFF";
+        btnTypeToggle.classList.remove("active");
+        btnTypeToggle.title = "Tipear: INACTIVO (Toca para activar foco)";
         input.blur();
         await window.ghostAPI.setFocusMode(false);
       }
@@ -1491,15 +1560,18 @@
 
     window.ghostAPI.onFocusStateChanged((state) => {
       typingMode = state;
+      btnTypeToggle.textContent = "✎";
       if (typingMode) {
-        focusIndicator.textContent = "MODO TECLADO";
+        focusIndicator.textContent = "TECLADO";
         focusIndicator.classList.add("active");
-        btnTypeToggle.textContent = "✎ Tipear: ON";
+        btnTypeToggle.classList.add("active");
+        btnTypeToggle.title = "Tipear: ACTIVO (Toca para desactivar foco)";
         input.focus();
       } else {
-        focusIndicator.textContent = "NO-FOCO (SEGURO)";
+        focusIndicator.textContent = "NO-FOCO";
         focusIndicator.classList.remove("active");
-        btnTypeToggle.textContent = "✎ Tipear: OFF";
+        btnTypeToggle.classList.remove("active");
+        btnTypeToggle.title = "Tipear: INACTIVO (Toca para activar foco)";
         input.blur();
       }
     });
@@ -1689,50 +1761,6 @@
       sendBtn.disabled = false;
       btnClip.disabled = false;
       btnSelect.disabled = false;
-    }
-
-    // Remote Modal Controls
-    const btnOpenRemote = document.getElementById("btn-open-remote");
-    const remoteModal = document.getElementById("remote-modal");
-    const btnRemoteClose = document.getElementById("btn-remote-close");
-    const btnRemoteCopy = document.getElementById("btn-remote-copy");
-    const remoteUrlBox = document.getElementById("remote-url-box");
-
-    let cachedRemoteUrl = "http://localhost:7777/remote";
-
-    async function updateRemoteInfo() {
-      try {
-        if (window.ghostAPI && window.ghostAPI.getRemoteInfo) {
-          const info = await window.ghostAPI.getRemoteInfo();
-          if (info && info.networkUrl) {
-            cachedRemoteUrl = info.networkUrl;
-            if (remoteUrlBox) remoteUrlBox.textContent = info.networkUrl;
-          }
-        }
-      } catch (e) {}
-    }
-
-    if (btnOpenRemote) {
-      btnOpenRemote.addEventListener("click", () => {
-        updateRemoteInfo();
-        if (remoteModal) remoteModal.style.display = "flex";
-      });
-    }
-
-    if (btnRemoteClose) {
-      btnRemoteClose.addEventListener("click", () => {
-        if (remoteModal) remoteModal.style.display = "none";
-      });
-    }
-
-    if (btnRemoteCopy) {
-      btnRemoteCopy.addEventListener("click", () => {
-        navigator.clipboard.writeText(cachedRemoteUrl);
-        btnRemoteCopy.textContent = "Copiado";
-        setTimeout(() => {
-          btnRemoteCopy.textContent = "Copiar";
-        }, 2000);
-      });
     }
   </script>
 </body>
