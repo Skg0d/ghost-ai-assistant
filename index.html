@@ -679,9 +679,16 @@
       <div class="sidebar-field-group">
         <label class="sidebar-label">Motor / Modelo:</label>
         <select id="sidebar-engine-select" class="sidebar-select">
-          <option value="antigravity" selected>Antigravity Engine</option>
-          <option value="gemini-3.8-flash-high">Gemini 3.8 Flash HIGH</option>
-          <option value="gemini-3.5-flash">Gemini 3.5 Flash</option>
+          <optgroup label="Antigravity">
+            <option value="gemini-3.8-flash-high" selected>Gemini 3.8 Flash HIGH</option>
+            <option value="claude-sonnet-4.6">Claude Sonnet 4.6 (Thinking)</option>
+            <option value="claude-opus-4.6">Claude Opus 4.6 (Thinking)</option>
+            <option value="gpt-oss-120b">GPT-OSS 120B (Medium)</option>
+            <option value="antigravity">Antigravity Solver (Python Exacto)</option>
+          </optgroup>
+          <optgroup label="Directo (API Key)">
+            <option value="gemini-3.5-flash">Gemini 3.5 Flash</option>
+          </optgroup>
         </select>
       </div>
 
@@ -772,9 +779,16 @@
     <div class="status-group">
       <button class="btn-sidebar-toggle" id="btn-open-sidebar" title="Abrir gestor de proyectos y chats">Chats</button>
       <select id="engine-select" style="background:#fff; border:1px solid #cbd5e1; border-radius:6px; font-size:11px; font-weight:600; color:#4338ca; padding:3px 6px; outline:none; cursor:pointer;" title="Elige el motor de inteligencia">
-        <option value="antigravity" selected>Antigravity Engine</option>
-        <option value="gemini-3.8-flash-high">Gemini 3.8 Flash HIGH</option>
-        <option value="gemini-3.5-flash">Gemini 3.5 Flash</option>
+        <optgroup label="Antigravity">
+          <option value="gemini-3.8-flash-high" selected>Gemini 3.8 Flash HIGH</option>
+          <option value="claude-sonnet-4.6">Claude Sonnet 4.6 (Thinking)</option>
+          <option value="claude-opus-4.6">Claude Opus 4.6 (Thinking)</option>
+          <option value="gpt-oss-120b">GPT-OSS 120B (Medium)</option>
+          <option value="antigravity">Antigravity Solver (Python Exacto)</option>
+        </optgroup>
+        <optgroup label="Directo (API Key)">
+          <option value="gemini-3.5-flash">Gemini 3.5 Flash</option>
+        </optgroup>
       </select>
       <span id="focus-indicator" title="Tocar esta ventana NO le quita el foco a tu navegador">NO-FOCO (SEGURO)</span>
     </div>
@@ -962,14 +976,23 @@
       loadProjects();
     });
 
-    // Sync Model Selectors
-    if (sidebarEngineSelect && engineSelect) {
-      sidebarEngineSelect.addEventListener("change", () => {
-        engineSelect.value = sidebarEngineSelect.value;
-      });
-      engineSelect.addEventListener("change", () => {
-        sidebarEngineSelect.value = engineSelect.value;
-      });
+    // Sync Model Selectors & Persist
+    let savedEngine = localStorage.getItem("ghost_selected_engine") || "gemini-3.8-flash-high";
+    if (savedEngine === "gemini") savedEngine = "gemini-3.5-flash";
+    if (sidebarEngineSelect) sidebarEngineSelect.value = savedEngine;
+    if (engineSelect) engineSelect.value = savedEngine;
+
+    function handleEngineChange(newEngine) {
+      if (sidebarEngineSelect) sidebarEngineSelect.value = newEngine;
+      if (engineSelect) engineSelect.value = newEngine;
+      localStorage.setItem("ghost_selected_engine", newEngine);
+    }
+
+    if (sidebarEngineSelect) {
+      sidebarEngineSelect.addEventListener("change", (e) => handleEngineChange(e.target.value));
+    }
+    if (engineSelect) {
+      engineSelect.addEventListener("change", (e) => handleEngineChange(e.target.value));
     }
 
     // --- SIDEBAR DRAWER CONTROLS ---

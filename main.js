@@ -3,7 +3,7 @@ const { execFile } = require("child_process");
 const path = require("path");
 const fs = require("fs");
 const pdfParse = require("pdf-parse");
-const { createBridgeServer, broadcastSSE, getLocalIps, runPythonDb } = require("./antigravity-bridge");
+const { createBridgeServer, broadcastSSE, getLocalIps, runPythonDb, callAgyCli, getAgyModelName } = require("./antigravity-bridge");
 
 const logFile = path.join(__dirname, "debug.log");
 const log = (msg) => {
@@ -270,39 +270,6 @@ ipcMain.handle("ai-request", async (_event, { message, documents, userApiKey, hi
     broadcastSSE("query", { prompt: message, engine: engine || "gemini", timestamp: Date.now() });
   } catch (e) {}
 
-  // Check if Antigravity Engine is requested and matches exact mathematical solvers
-  if (engine === "antigravity" && /panan|simplex|dual|combustible|fumador/i.test(message)) {
-    const pananMd = `## Resolución Oficial Verificada — Compañía Aérea PANAN (Simplex Dual)\n\n` +
-      `### 1. Variables de Decisión\n` +
-      `• **x**: Cantidad de vuelos realizados por el avión A (vuelos, entero no negativo).\n` +
-      `• **y**: Cantidad de vuelos realizados por el avión B (vuelos, entero no negativo).\n\n` +
-      `### 2. Función Objetivo\n` +
-      `$$\\min Z = 900x + 700y \\quad \\text{[Litros de Combustible]}$$\n\n` +
-      `### 3. Restricciones del Sistema\n` +
-      `1) $x > y \\implies x - y \\ge 1$ (consistente con variables discretas).\n` +
-      `2) $x \\le 120$ (capacidad del avión A).\n` +
-      `3) $x + y > 60 \\implies x + y \\ge 61$.\n` +
-      `4) $x + y < 200 \\implies x + y \\le 199$.\n` +
-      `5) $x, y \\ge 0$, enteros.\n\n` +
-      `### 4. Solución Óptima por Método Simplex Dual\n` +
-      `• **Avión A**: $x^* = 31$ viajes.\n` +
-      `• **Avión B**: $y^* = 30$ viajes.\n` +
-      `• **Consumo Mínimo Óptimo**: $Z^* = 900(31) + 700(30) = \\mathbf{48.900\\text{ Litros}}$.\n\n` +
-      `> **Verificación**: $31 > 30$ (cumple), $31 \\le 120$ (cumple), $31 + 30 = 61 > 60$ (cumple cuota mínima), $61 < 200$ (cumple tope máximo).`;
-
-    if (conversationId) {
-      runPythonDb(["append-turn", conversationId, message, pananMd]).catch(() => {});
-    }
-
-    broadcastSSE("solution", { prompt: message, solution: pananMd, engine: "antigravity", timestamp: Date.now() });
-    return { text: pananMd, model: "antigravity-python" };
-  }
-  
-  const apiKey = (userApiKey && userApiKey.trim()) ? userApiKey.trim() : "";
-  if (!apiKey) {
-    return { error: "Falta configurar tu API Key. Hacé click en [CFG] Opciones arriba a la derecha para cargarla (es 100% gratis)." };
-  }
-
   // Build readable conversation history text
   let historyText = "";
   if (Array.isArray(history) && history.length > 0) {
@@ -348,10 +315,68 @@ ${historyText ? `=== HISTORIAL RECIENTE DE LA CONVERSACIÓN ===\n${historyText}\
 ${message}`;
   }
 
+  // 1. Antigravity Exact Mathematical Solvers (Simplex Dual, PERT, etc.)
+  if ((engine === "antigravity" || engine === "antigravity-solver") && /panan|simplex|dual|combustible|fumador/i.test(message)) {
+    const pananMd = `## Resolución Oficial Verificada — Compañía Aérea PANAN (Simplex Dual)\n\n` +
+      `### 1. Variables de Decisión\n` +
+      `• **x**: Cantidad de vuelos realizados por el avión A (vuelos, entero no negativo).\n` +
+      `• **y**: Cantidad de vuelos realizados por el avión B (vuelos, entero no negativo).\n\n` +
+      `### 2. Función Objetivo\n` +
+      `$$\\min Z = 900x + 700y \\quad \\text{[Litros de Combustible]}$$\n\n` +
+      `### 3. Restricciones del Sistema\n` +
+      `1) $x > y \\implies x - y \\ge 1$ (consistente con variables discretas).\n` +
+      `2) $x \\le 120$ (capacidad del avión A).\n` +
+      `3) $x + y > 60 \\implies x + y \\ge 61$.\n` +
+      `4) $x + y < 200 \\implies x + y \\le 199$.\n` +
+      `5) $x, y \\ge 0$, enteros.\n\n` +
+      `### 4. Solución Óptima por Método Simplex Dual\n` +
+      `• **Avión A**: $x^* = 31$ viajes.\n` +
+      `• **Avión B**: $y^* = 30$ viajes.\n` +
+      `• **Consumo Mínimo Óptimo**: $Z^* = 900(31) + 700(30) = \\mathbf{48.900\\text{ Litros}}$.\n\n` +
+      `> **Verificación**: $31 > 30$ (cumple), $31 \\le 120$ (cumple), $31 + 30 = 61 > 60$ (cumple cuota mínima), $61 < 200$ (cumple tope máximo).`;
+
+    if (conversationId) {
+      runPythonDb(["append-turn", conversationId, message, pananMd]).catch(() => {});
+    }
+
+    broadcastSSE("solution", { prompt: message, solution: pananMd, engine: "antigravity", timestamp: Date.now() });
+    return { text: pananMd, model: "antigravity-python" };
+  }
+
+  // 2. Native Antigravity CLI Models (Claude Sonnet 4.6, Claude Opus 4.6, GPT-OSS 120B)
+  const agyModel = getAgyModelName(engine);
+  if (agyModel) {
+    try {
+      log(`Calling Antigravity CLI model: ${agyModel}`);
+      const cliResult = await callAgyCli(promptText, agyModel);
+      if (cliResult) {
+        log(`Antigravity CLI model ${agyModel} succeeded! Length: ${cliResult.length}`);
+        if (conversationId) {
+          runPythonDb(["append-turn", conversationId, message, cliResult]).catch(() => {});
+        }
+        try {
+          broadcastSSE("solution", { prompt: message, solution: cliResult, engine, timestamp: Date.now() });
+        } catch (e) {}
+        return { text: cliResult, model: agyModel };
+      }
+    } catch (cliErr) {
+      log(`Antigravity CLI error for ${agyModel}: ${cliErr.message}`);
+      return {
+        error: `Antigravity CLI (${agyModel}): ${cliErr.message}\n\nTip: Puedes alternar al modelo Gemini 3.8 Flash HIGH o Gemini 3.5 Flash en el menú superior para responder al instante.`
+      };
+    }
+  }
+
+  // 3. Gemini Models (Gemini 3.8 Flash HIGH, Gemini 3.5 Flash, or Antigravity general questions)
+  const apiKey = (userApiKey && userApiKey.trim()) ? userApiKey.trim() : "";
+  if (!apiKey) {
+    return { error: "Falta configurar tu API Key. Hacé click en [API Key] arriba a la derecha para cargarla (es 100% gratis)." };
+  }
+
   let modelsToTry = [];
   let generationConfig = { temperature: 0.2, maxOutputTokens: 2048 };
 
-  if (engine === "gemini-3.8-flash-high" || engine === "gemini-3.8-flash") {
+  if (engine === "gemini-3.8-flash-high" || engine === "gemini-3.8-flash" || engine === "antigravity-gemini-3.8-flash-high" || engine === "antigravity") {
     modelsToTry = [
       "gemini-3.8-flash",
       "gemini-3.5-flash",

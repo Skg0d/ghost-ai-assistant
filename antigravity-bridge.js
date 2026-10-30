@@ -118,40 +118,101 @@ async function solveWithPython(type, prompt) {
   return null;
 }
 
+// Helper: Map UI engine identifier to native Antigravity CLI model name
+function getAgyModelName(engine) {
+  if (engine === "claude-sonnet-4.6" || engine === "antigravity-claude-sonnet-4.6") {
+    return "Claude Sonnet 4.6 (Thinking)";
+  }
+  if (engine === "claude-opus-4.6" || engine === "antigravity-claude-opus-4.6") {
+    return "Claude Opus 4.6 (Thinking)";
+  }
+  if (engine === "gpt-oss-120b" || engine === "antigravity-gpt-oss-120b") {
+    return "GPT-OSS 120B (Medium)";
+  }
+  return null;
+}
+
+// Call Antigravity CLI binary non-interactively
+function callAgyCli(promptText, modelName = "Claude Sonnet 4.6 (Thinking)") {
+  return new Promise((resolve, reject) => {
+    execFile(
+      "agy.exe",
+      ["--print", promptText, "--model", modelName],
+      { timeout: 120000, maxBuffer: 10 * 1024 * 1024 },
+      (err, stdout, stderr) => {
+        const out = (stdout || "").trim();
+        const errStr = (stderr || "").trim();
+        if (out) return resolve(out);
+        if (err) {
+          if (/RESOURCE_EXHAUSTED|quota|429/i.test(errStr)) {
+            return reject(new Error(`Límite de cuota temporal alcanzado en Antigravity (${modelName}).`));
+          }
+          return reject(new Error(errStr || err.message || "Error al ejecutar Antigravity CLI"));
+        }
+        resolve(out || "Sin respuesta del modelo Antigravity.");
+      }
+    );
+  });
+}
+
 // Call Gemini API directly as fallback or fast engine
-async function callGemini(prompt, userApiKey, systemInstruction) {
+async function callGemini(prompt, userApiKey, systemInstruction, engine = "gemini-3.8-flash-high") {
   const apiKey = (userApiKey && userApiKey.trim()) ? userApiKey.trim() : process.env.GEMINI_API_KEY || "";
   if (!apiKey) {
     throw new Error("No hay API Key configurada. Ingresa tu clave gratuita de Gemini.");
   }
 
-  const models = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash"];
+  const isHigh = engine === "gemini-3.8-flash-high" || engine === "antigravity-gemini-3.8-flash-high";
+  const models = isHigh
+    ? ["gemini-3.8-flash", "gemini-3.5-flash", "gemini-3.5-flash-lite", "gemini-2.5-flash", "gemini-flash-latest"]
+    : ["gemini-3.5-flash", "gemini-3.5-flash-lite", "gemini-3.8-flash", "gemini-2.5-flash", "gemini-flash-latest"];
+
+  const generationConfig = isHigh
+    ? { temperature: 0.2, maxOutputTokens: 4096, thinkingConfig: { thinkingBudget: 2048 } }
+    : { temperature: 0.2, maxOutputTokens: 2048 };
+
   let lastErr = null;
 
   for (const model of models) {
     try {
       const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
       const contents = [{ role: "user", parts: [{ text: prompt }] }];
-      const bodyPayload = { contents };
+      const bodyPayload = { contents, generationConfig };
       if (systemInstruction) {
         bodyPayload.systemInstruction = { parts: [{ text: systemInstruction }] };
       }
 
-      const res = await fetch(url, {
+      let res = await fetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json", "X-goog-api-key": apiKey },
-        body: JSON.stringify(bodyPayload)
+        body: JSON.stringify(bodyPayload),
+        signal: AbortSignal.timeout(8000),
       });
 
-      if (!res.ok) {
-        const errText = await res.text();
-        throw new Error(`HTTP ${res.status}: ${errText}`);
+      let data = await res.json();
+
+      // If thinkingConfig is unsupported on this specific model variant, retry cleanly without it
+      if (data.error && bodyPayload.generationConfig?.thinkingConfig) {
+        delete bodyPayload.generationConfig.thinkingConfig;
+        res = await fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "X-goog-api-key": apiKey },
+          body: JSON.stringify(bodyPayload),
+          signal: AbortSignal.timeout(8000),
+        });
+        data = await res.json();
       }
 
-      const data = await res.json();
+      if (data.error) {
+        lastErr = new Error(`Model ${model}: ${data.error.message}`);
+        continue;
+      }
+
       const candidate = data.candidates && data.candidates[0];
-      const text = candidate && candidate.content && candidate.content.parts && candidate.content.parts[0] && candidate.content.parts[0].text;
-      if (text) return text;
+      const parts = candidate?.content?.parts || [];
+      const textParts = parts.map((p) => p.text).filter(Boolean);
+      const fullText = textParts.join("\n\n").trim();
+      if (fullText) return fullText;
     } catch (err) {
       lastErr = err;
     }
@@ -253,18 +314,26 @@ function createBridgeServer(port = DEFAULT_PORT) {
 
         let solution = null;
 
-        // Try Python solver first if Antigravity engine is requested
-        if (engine === "antigravity") {
+        // Try native Antigravity CLI models (Claude / GPT-OSS) first
+        const agyModel = getAgyModelName(engine);
+        if (agyModel) {
+          try {
+            solution = await callAgyCli(prompt, agyModel);
+          } catch (cliErr) {
+            solution = `[Antigravity CLI - ${agyModel}]: ${cliErr.message}\n\nPuedes seleccionar Gemini 3.8 Flash HIGH o Gemini 3.5 Flash como alternativa instantánea.`;
+          }
+        } else if (engine === "antigravity" || engine === "antigravity-solver") {
+          // Try Python solver if Antigravity exact solver engine is requested
           solution = await solveWithPython(type, prompt);
         }
 
-        // If not solved by specific python solver or engine is gemini, call LLM with academic rules
+        // If not solved by CLI or specific python solver, call Gemini API with academic rules
         if (!solution) {
           const systemRules = `Eres un experto universitario en Investigación Operativa y Ciencias Exactas. ` +
             `Resuelve con el más alto rigor matemático, mostrando cada ecuación, pivoteo, tabla paso a paso y verificación estricta. ` +
             `PROHIBIDO usar variables artificiales o Gran M en problemas que se resuelven canónicamente por Simplex Dual. ` +
             `Entrega la solución estructurada en Markdown formal.`;
-          solution = await callGemini(prompt, apiKey, systemRules);
+          solution = await callGemini(prompt, apiKey, systemRules, engine);
         }
 
         lastSolution = { prompt, solution, timestamp: Date.now() };
@@ -439,4 +508,4 @@ if (require.main === module) {
   createBridgeServer(DEFAULT_PORT);
 }
 
-module.exports = { createBridgeServer, broadcastSSE, getLocalIps, runPythonDb };
+module.exports = { createBridgeServer, broadcastSSE, getLocalIps, runPythonDb, callAgyCli, getAgyModelName };
