@@ -9,6 +9,7 @@
   },
   "dependencies": {
     "electron": "^33.0.0",
+    "marked": "^18.1.2",
     "pdf-parse": "^1.1.1"
   }
 }

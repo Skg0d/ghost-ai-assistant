@@ -626,6 +626,114 @@
       align-self: flex-start;
       border-bottom-left-radius: 2px;
       border: 1px solid var(--msg-ai-border);
+      white-space: normal;
+    }
+
+    .msg.ai h1, .msg.ai h2, .msg.ai h3, .msg.ai h4 {
+      font-size: 13px;
+      font-weight: 700;
+      margin: 8px 0 4px 0;
+      color: var(--text-main);
+    }
+    .msg.ai h1:first-child, .msg.ai h2:first-child, .msg.ai h3:first-child, .msg.ai h4:first-child {
+      margin-top: 0;
+    }
+    .msg.ai p {
+      margin-bottom: 6px;
+    }
+    .msg.ai p:last-child {
+      margin-bottom: 0;
+    }
+    .msg.ai ul, .msg.ai ol {
+      margin: 4px 0 6px 18px;
+    }
+    .msg.ai li {
+      margin-bottom: 3px;
+    }
+    .msg.ai hr {
+      border: 0;
+      border-top: 1px solid var(--border-main);
+      margin: 8px 0;
+    }
+    .msg.ai blockquote {
+      border-left: 3px solid var(--text-muted);
+      padding-left: 8px;
+      margin: 6px 0;
+      color: var(--text-muted);
+      font-style: italic;
+    }
+    .msg.ai code {
+      background: var(--bg-card-hover);
+      padding: 1px 4px;
+      border-radius: 4px;
+      font-family: Consolas, monospace;
+      font-size: 11.5px;
+      border: 1px solid var(--border-btn);
+    }
+    .msg.ai pre {
+      background: var(--bg-card-hover);
+      padding: 8px;
+      border-radius: 6px;
+      overflow-x: auto;
+      margin: 6px 0;
+      border: 1px solid var(--border-main);
+    }
+    .msg.ai pre code {
+      background: transparent;
+      padding: 0;
+      border: none;
+      font-size: 11.5px;
+    }
+    .msg.ai strong {
+      font-weight: 700;
+      color: var(--text-main);
+    }
+
+    /* Slash command suggestions dropdown */
+    #slash-popup {
+      position: absolute;
+      bottom: 50px;
+      left: 10px;
+      width: calc(100% - 20px);
+      max-height: 180px;
+      overflow-y: auto;
+      background: var(--modal-bg);
+      border: 1px solid var(--border-main);
+      border-radius: 8px;
+      box-shadow: 0 -6px 20px rgba(0, 0, 0, 0.25);
+      display: none;
+      flex-direction: column;
+      z-index: 9000;
+    }
+    #slash-popup.active {
+      display: flex;
+    }
+    .slash-item {
+      padding: 6px 10px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+      font-size: 11.5px;
+      border-bottom: 1px solid var(--border-main);
+      transition: background 0.1s ease;
+    }
+    .slash-item:last-child { border-bottom: none; }
+    .slash-item:hover, .slash-item.selected {
+      background: var(--bg-card-hover);
+    }
+    .slash-cmd {
+      font-weight: 700;
+      font-family: Consolas, monospace;
+      color: var(--text-main);
+      flex-shrink: 0;
+    }
+    .slash-desc {
+      color: var(--text-muted);
+      font-size: 10.5px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
 
     .msg.hint {
@@ -964,6 +1072,9 @@
       El motor Dual Simplex / PERT resolvera con rigor matematico y exportara a Word/PDF.
     </div>
   </div>
+
+  <!-- Slash Commands Autocomplete Popup -->
+  <div id="slash-popup"></div>
 
   <!-- Footer -->
   <div id="footer">
@@ -1582,18 +1693,111 @@
       if (!typingMode) setTypingMode(true);
     });
 
+    // Slash commands list & autocomplete
+    const SLASH_COMMANDS = [
+      { cmd: "/develop", desc: "Flujo riguroso: Research, Plan, Implement, Test, Audit" },
+      { cmd: "/plan", desc: "Planificar paso a paso antes de ejecutar cambios" },
+      { cmd: "/goal", desc: "Ejecución autónoma exhaustiva hasta lograr el objetivo" },
+      { cmd: "/browser", desc: "Búsqueda web y navegación interactiva" },
+      { cmd: "/boost", desc: "Razonamiento profundo con múltiples perspectivas" },
+      { cmd: "/clear", desc: "Limpiar la pantalla y reiniciar conversación" },
+      { cmd: "/theme", desc: "Alternar modo Blanco y Negro (Claro / Oscuro)" },
+      { cmd: "/local", desc: "Cambiar a Modo Local (cálculos en esta PC)" },
+      { cmd: "/remote", desc: "Cambiar a Modo Remoto (conectar a PC remota)" }
+    ];
+
+    const slashPopup = document.getElementById("slash-popup");
+    let selectedSlashIdx = -1;
+
+    function renderSlashSuggestions(query) {
+      if (!slashPopup) return;
+      const filtered = SLASH_COMMANDS.filter(s => s.cmd.toLowerCase().startsWith(query.toLowerCase()));
+      if (filtered.length === 0) {
+        slashPopup.classList.remove("active");
+        slashPopup.innerHTML = "";
+        selectedSlashIdx = -1;
+        return;
+      }
+
+      slashPopup.innerHTML = "";
+      filtered.forEach((item, index) => {
+        const row = document.createElement("div");
+        row.className = `slash-item ${index === selectedSlashIdx ? 'selected' : ''}`;
+        row.innerHTML = `<span class="slash-cmd">${item.cmd}</span><span class="slash-desc">${item.desc}</span>`;
+        row.addEventListener("click", () => {
+          applySlashCommand(item.cmd);
+        });
+        slashPopup.appendChild(row);
+      });
+      slashPopup.classList.add("active");
+    }
+
+    function applySlashCommand(cmd) {
+      input.value = cmd + " ";
+      if (slashPopup) {
+        slashPopup.classList.remove("active");
+        selectedSlashIdx = -1;
+      }
+      input.focus();
+    }
+
     input.addEventListener("input", () => {
       input.style.height = "auto";
       input.style.height = Math.min(input.scrollHeight, 90) + "px";
+
+      const val = input.value.trim();
+      if (val.startsWith("/")) {
+        const parts = val.split(" ");
+        if (parts.length === 1) {
+          renderSlashSuggestions(parts[0]);
+          return;
+        }
+      }
+      if (slashPopup) slashPopup.classList.remove("active");
     });
 
     input.addEventListener("keydown", (e) => {
+      if (slashPopup && slashPopup.classList.contains("active")) {
+        const items = slashPopup.querySelectorAll(".slash-item");
+        if (e.key === "ArrowDown") {
+          e.preventDefault();
+          selectedSlashIdx = (selectedSlashIdx + 1) % items.length;
+          items.forEach((it, idx) => it.classList.toggle("selected", idx === selectedSlashIdx));
+          return;
+        }
+        if (e.key === "ArrowUp") {
+          e.preventDefault();
+          selectedSlashIdx = (selectedSlashIdx - 1 + items.length) % items.length;
+          items.forEach((it, idx) => it.classList.toggle("selected", idx === selectedSlashIdx));
+          return;
+        }
+        if (e.key === "Enter" || e.key === "Tab") {
+          if (selectedSlashIdx >= 0 && items[selectedSlashIdx]) {
+            e.preventDefault();
+            const cmdText = items[selectedSlashIdx].querySelector(".slash-cmd").textContent;
+            applySlashCommand(cmdText);
+            return;
+          }
+        }
+        if (e.key === "Escape") {
+          slashPopup.classList.remove("active");
+          selectedSlashIdx = -1;
+          return;
+        }
+      }
+
       if (e.key === "Enter" && !e.shiftKey) {
         e.preventDefault();
         send(input.value.trim());
         setTypingMode(false);
       } else if (e.key === "Escape") {
         setTypingMode(false);
+      }
+    });
+
+    document.addEventListener("click", (e) => {
+      if (slashPopup && !slashPopup.contains(e.target) && e.target !== input) {
+        slashPopup.classList.remove("active");
       }
     });
 
@@ -1656,7 +1860,15 @@
     function addMsg(type, text) {
       const el = document.createElement("div");
       el.className = `msg ${type}`;
-      el.textContent = text;
+      if (type === "ai" || type === "hint") {
+        if (window.ghostAPI && typeof window.ghostAPI.renderMarkdown === "function") {
+          el.innerHTML = window.ghostAPI.renderMarkdown(text);
+        } else {
+          el.textContent = text;
+        }
+      } else {
+        el.textContent = text;
+      }
       chat.appendChild(el);
       chat.scrollTop = chat.scrollHeight;
       return el;
@@ -1664,6 +1876,39 @@
 
     async function send(text) {
       if (!text || isBusy) return;
+
+      const trimmed = text.trim();
+      const lower = trimmed.toLowerCase();
+
+      // Handle client-side quick commands
+      if (lower === "/clear" || lower === "/limpiar") {
+        chat.innerHTML = `<div class="msg hint">Chat limpiado. Continua en: <strong>${currentChatTitle || 'General'}</strong></div>`;
+        conversationHistory = [];
+        input.value = "";
+        return;
+      }
+      if (lower === "/theme" || lower === "/tema") {
+        const isDark = document.body.classList.contains("theme-dark");
+        applyTheme(isDark ? "light" : "dark");
+        addMsg("hint", `Tema cambiado a <strong>${isDark ? 'Claro' : 'Oscuro'}</strong>.`);
+        input.value = "";
+        return;
+      }
+      if (lower === "/local") {
+        localStorage.setItem("ghost_host_mode", "local");
+        syncHostUI();
+        addMsg("hint", "Modo cambiado a <strong>Local</strong> (esta PC).");
+        input.value = "";
+        return;
+      }
+      if (lower === "/remote" || lower === "/remoto") {
+        localStorage.setItem("ghost_host_mode", "remote");
+        syncHostUI();
+        addMsg("hint", `Modo cambiado a <strong>Remoto</strong> (${getSavedRemoteHost()}).`);
+        input.value = "";
+        return;
+      }
+
       isBusy = true;
       sendBtn.disabled = true;
       btnClip.disabled = true;

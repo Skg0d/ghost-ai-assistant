@@ -1,6 +1,20 @@
 const { contextBridge, ipcRenderer, webUtils } = require("electron");
+const { marked } = require("marked");
+
+// Configure marked options for clean rendering
+marked.setOptions({
+  gfm: true,
+  breaks: true,
+});
 
 contextBridge.exposeInMainWorld("ghostAPI", {
+  renderMarkdown: (text) => {
+    try {
+      return marked.parse(text || "");
+    } catch {
+      return text || "";
+    }
+  },
   sendMessage: (data) => ipcRenderer.invoke("ai-request", data),
   setOpacity: (val) => ipcRenderer.invoke("set-opacity", val),
   getClipboard: () => ipcRenderer.invoke("get-clipboard"),
