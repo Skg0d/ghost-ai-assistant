@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Menu, ipcMain, globalShortcut, clipboard, dialog, webUtils } = require("electron");
+const { app, BrowserWindow, Menu, ipcMain, globalShortcut, clipboard, dialog, webUtils, shell } = require("electron");
 const { execFile } = require("child_process");
 const path = require("path");
 const fs = require("fs");
@@ -44,6 +44,38 @@ function createWindow() {
 
   mainWindow.webContents.on("console-message", (_event, _level, message) => {
     log(`[Renderer] ${message}`);
+  });
+
+  // Handle external links and file clicks (open .docx directly in Word, web in browser)
+  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+    if (url.startsWith("file:///") || url.startsWith("http://") || url.startsWith("https://")) {
+      let clean = url;
+      if (clean.startsWith("file:///")) {
+        clean = decodeURIComponent(clean.replace(/^file:\/\/\//, ""));
+        if (fs.existsSync(clean)) {
+          shell.openPath(clean);
+          return { action: "deny" };
+        }
+      }
+      shell.openExternal(url);
+    }
+    return { action: "deny" };
+  });
+
+  mainWindow.webContents.on("will-navigate", (event, url) => {
+    const currentUrl = mainWindow.webContents.getURL();
+    if (url !== currentUrl && !url.includes("index.html")) {
+      event.preventDefault();
+      let clean = url;
+      if (clean.startsWith("file:///")) {
+        clean = decodeURIComponent(clean.replace(/^file:\/\/\//, ""));
+        if (fs.existsSync(clean)) {
+          shell.openPath(clean);
+          return;
+        }
+      }
+      shell.openExternal(url);
+    }
   });
 
   // Right-click context menu for Copy, Cut, Paste, and Select All
@@ -357,6 +389,24 @@ ipcMain.handle("select-project-folder", async () => {
   mainWindow.setFocusable(isFocusable);
   if (result.canceled || !result.filePaths.length) return null;
   return result.filePaths[0];
+});
+
+ipcMain.handle("open-path", async (_event, targetPath) => {
+  try {
+    let clean = targetPath;
+    if (clean.startsWith("file:///")) {
+      clean = decodeURIComponent(clean.replace(/^file:\/\/\//, ""));
+    }
+    if (fs.existsSync(clean)) {
+      await shell.openPath(clean);
+      return { ok: true };
+    } else {
+      await shell.openExternal(targetPath);
+      return { ok: true };
+    }
+  } catch (err) {
+    return { error: err.message };
+  }
 });
 
 // IPC: Robust AI call with multi-document synthesis, academic criteria, and memory

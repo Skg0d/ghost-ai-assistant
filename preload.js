@@ -25,4 +25,5 @@ contextBridge.exposeInMainWorld("ghostAPI", {
   getConversationHistory: (cid) => ipcRenderer.invoke("get-conversation-history", cid),
   createConversation: (data) => ipcRenderer.invoke("create-conversation", data),
   selectProjectFolder: () => ipcRenderer.invoke("select-project-folder"),
+  openPath: (targetPath) => ipcRenderer.invoke("open-path", targetPath),
 });

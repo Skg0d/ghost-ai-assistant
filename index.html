@@ -1178,6 +1178,20 @@
     const btnModalSave = document.getElementById("btn-modal-save");
     const btnModalCancel = document.getElementById("btn-modal-cancel");
 
+    // Allow clicking links (like generated .docx files or websites) to open directly with Microsoft Word or default browser
+    chat.addEventListener("click", (e) => {
+      const anchor = e.target.closest("a");
+      if (anchor && anchor.href) {
+        e.preventDefault();
+        const href = anchor.getAttribute("href") || anchor.href;
+        if (window.ghostAPI && typeof window.ghostAPI.openPath === "function") {
+          window.ghostAPI.openPath(href);
+        } else {
+          window.open(href, "_blank");
+        }
+      }
+    });
+
     // Local storage keys
     const STORAGE_KEY = "user_gemini_api_key";
     const radioHostLocal = document.getElementById("radio-host-local");
