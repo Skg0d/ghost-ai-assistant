@@ -3,7 +3,7 @@ const { execFile } = require("child_process");
 const path = require("path");
 const fs = require("fs");
 const pdfParse = require("pdf-parse");
-const { createBridgeServer, broadcastSSE, getLocalIps } = require("./antigravity-bridge");
+const { createBridgeServer, broadcastSSE, getLocalIps, runPythonDb } = require("./antigravity-bridge");
 
 const logFile = path.join(__dirname, "debug.log");
 const log = (msg) => {
@@ -220,8 +220,47 @@ ipcMain.handle("get-clipboard", () => {
   return text || "";
 });
 
+// IPC: Antigravity Projects & Conversation Management
+ipcMain.handle("get-projects", async () => {
+  try {
+    return await runPythonDb(["list-projects"]);
+  } catch (err) {
+    log("get-projects error: " + err.message);
+    return [];
+  }
+});
+
+ipcMain.handle("get-conversation-history", async (_event, cid) => {
+  try {
+    return await runPythonDb(["get-conversation", cid]);
+  } catch (err) {
+    log("get-conversation-history error: " + err.message);
+    return { id: cid, messages: [] };
+  }
+});
+
+ipcMain.handle("create-conversation", async (_event, { workspace, title }) => {
+  try {
+    return await runPythonDb(["create-conversation", workspace || "", title || "Nuevo Chat"]);
+  } catch (err) {
+    log("create-conversation error: " + err.message);
+    return { error: err.message };
+  }
+});
+
+ipcMain.handle("select-project-folder", async () => {
+  mainWindow.setFocusable(true);
+  const result = await dialog.showOpenDialog(mainWindow, {
+    title: "Seleccionar Carpeta del Proyecto",
+    properties: ["openDirectory"]
+  });
+  mainWindow.setFocusable(isFocusable);
+  if (result.canceled || !result.filePaths.length) return null;
+  return result.filePaths[0];
+});
+
 // IPC: Robust AI call with multi-document synthesis, academic criteria, and memory
-ipcMain.handle("ai-request", async (_event, { message, documents, userApiKey, history, engine }) => {
+ipcMain.handle("ai-request", async (_event, { message, documents, userApiKey, history, engine, conversationId }) => {
   const docList = Array.isArray(documents) ? documents.filter(d => d && d.content) : [];
   log(`ai-request: "${message.substring(0, 50)}..." (Engine: ${engine || "gemini"}, DocsCount: ${docList.length}, HistoryLen: ${history ? history.length : 0})`);
   
@@ -249,13 +288,17 @@ ipcMain.handle("ai-request", async (_event, { message, documents, userApiKey, hi
       `• **Consumo Mínimo Óptimo**: $Z^* = 900(31) + 700(30) = \\mathbf{48.900\\text{ Litros}}$.\n\n` +
       `> **Verificación**: $31 > 30$ (cumple), $31 \\le 120$ (cumple), $31 + 30 = 61 > 60$ (cumple cuota mínima), $61 < 200$ (cumple tope máximo).`;
 
+    if (conversationId) {
+      runPythonDb(["append-turn", conversationId, message, pananMd]).catch(() => {});
+    }
+
     broadcastSSE("solution", { prompt: message, solution: pananMd, engine: "antigravity", timestamp: Date.now() });
     return { text: pananMd, model: "antigravity-python" };
   }
   
   const apiKey = (userApiKey && userApiKey.trim()) ? userApiKey.trim() : "";
   if (!apiKey) {
-    return { error: "Falta configurar tu API Key. Hacé click en ⚙️ API Key arriba a la derecha para cargarla (es 100% gratis)." };
+    return { error: "Falta configurar tu API Key. Hacé click en [CFG] Opciones arriba a la derecha para cargarla (es 100% gratis)." };
   }
 
   // Build readable conversation history text
@@ -349,6 +392,9 @@ ${message}`;
 
       if (fullText) {
         log(`Model ${model} succeeded! Length: ${fullText.length}`);
+        if (conversationId) {
+          runPythonDb(["append-turn", conversationId, message, fullText]).catch(() => {});
+        }
         try {
           broadcastSSE("solution", { prompt: message, solution: fullText, engine: engine || "gemini", timestamp: Date.now() });
         } catch (e) {}

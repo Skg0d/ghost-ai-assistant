@@ -20,4 +20,8 @@ contextBridge.exposeInMainWorld("ghostAPI", {
   getRemoteInfo: () => ipcRenderer.invoke("get-remote-info"),
   onAskClipboard: (cb) => ipcRenderer.on("ask-clipboard", cb),
   onFocusStateChanged: (cb) => ipcRenderer.on("focus-state-changed", (_e, state) => cb(state)),
+  getProjects: () => ipcRenderer.invoke("get-projects"),
+  getConversationHistory: (cid) => ipcRenderer.invoke("get-conversation-history", cid),
+  createConversation: (data) => ipcRenderer.invoke("create-conversation", data),
+  selectProjectFolder: () => ipcRenderer.invoke("select-project-folder"),
 });

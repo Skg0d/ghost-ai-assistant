@@ -38,6 +38,31 @@ function cleanSSEClients() {
   sseClients = sseClients.filter((c) => !c.res.writableEnded && !c.res.finished);
 }
 
+// Helper: Run Antigravity DB Python script
+function runPythonDb(args) {
+  return new Promise((resolve, reject) => {
+    const scriptPath = path.join(__dirname, "solvers", "antigravity_db.py");
+    const py = spawn("python", [scriptPath, ...args]);
+    let stdout = "";
+    let stderr = "";
+    py.stdout.on("data", (chunk) => (stdout += chunk.toString("utf8")));
+    py.stderr.on("data", (chunk) => (stderr += chunk.toString("utf8")));
+    py.on("close", (code) => {
+      try {
+        const parsed = JSON.parse(stdout);
+        resolve(parsed);
+      } catch (err) {
+        if (code !== 0) {
+          reject(new Error(stderr || `Python exit code ${code}`));
+        } else {
+          resolve(stdout.trim());
+        }
+      }
+    });
+    py.on("error", reject);
+  });
+}
+
 // Helper: Parse JSON body
 function parseJsonBody(req) {
   return new Promise((resolve, reject) => {
@@ -169,6 +194,48 @@ function createBridgeServer(port = DEFAULT_PORT) {
       return;
     }
 
+    // Projects endpoint (returns all workspaces & chats from Antigravity SQLite)
+    if (pathname === "/api/projects" && req.method === "GET") {
+      try {
+        const projects = await runPythonDb(["list-projects"]);
+        res.writeHead(200, { "Content-Type": "application/json; charset=utf-8" });
+        res.end(JSON.stringify(projects));
+      } catch (err) {
+        res.writeHead(500, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: err.message }));
+      }
+      return;
+    }
+
+    // Conversation history endpoint: /api/conversations/:id
+    if (pathname.startsWith("/api/conversations/") && req.method === "GET") {
+      const cid = pathname.replace("/api/conversations/", "").trim();
+      try {
+        const history = await runPythonDb(["get-conversation", cid]);
+        res.writeHead(200, { "Content-Type": "application/json; charset=utf-8" });
+        res.end(JSON.stringify(history));
+      } catch (err) {
+        res.writeHead(500, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: err.message }));
+      }
+      return;
+    }
+
+    // Create new conversation endpoint: POST /api/conversations/new
+    if (pathname === "/api/conversations/new" && req.method === "POST") {
+      try {
+        const body = await parseJsonBody(req);
+        const { workspace = "", title = "Nuevo Chat" } = body;
+        const result = await runPythonDb(["create-conversation", workspace, title]);
+        res.writeHead(200, { "Content-Type": "application/json; charset=utf-8" });
+        res.end(JSON.stringify(result));
+      } catch (err) {
+        res.writeHead(500, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: err.message }));
+      }
+      return;
+    }
+
     // 2. Solve endpoint
     if (pathname === "/api/solve" && req.method === "POST") {
       try {
@@ -201,6 +268,11 @@ function createBridgeServer(port = DEFAULT_PORT) {
         }
 
         lastSolution = { prompt, solution, timestamp: Date.now() };
+
+        // Append to conversation transcript if conversationId was supplied
+        if (body.conversationId && solution) {
+          runPythonDb(["append-turn", body.conversationId, prompt, solution]).catch(() => {});
+        }
 
         // Broadcast solution event to all remote devices
         broadcastSSE("solution", { prompt, solution, engine, timestamp: Date.now() });
@@ -367,4 +439,4 @@ if (require.main === module) {
   createBridgeServer(DEFAULT_PORT);
 }
 
-module.exports = { createBridgeServer, broadcastSSE, getLocalIps };
+module.exports = { createBridgeServer, broadcastSSE, getLocalIps, runPythonDb };
