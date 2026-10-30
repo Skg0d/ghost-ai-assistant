@@ -265,6 +265,13 @@ function createBridgeServer(port = DEFAULT_PORT, options = {}) {
     const pathname = parsedUrl.pathname;
 
     // Window control endpoints
+    if (pathname === "/api/window/reload") {
+      const result = options.reloadWindow ? options.reloadWindow() : false;
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ ok: true, reloaded: result }));
+      return;
+    }
+
     if (pathname === "/api/window/show") {
       const result = options.showWindow ? options.showWindow() : false;
       const info = options.getWindowInfo ? options.getWindowInfo() : null;

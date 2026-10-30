@@ -109,7 +109,9 @@ if (!gotTheLock) {
           { role: "cut", accelerator: "CmdOrCtrl+X" },
           { role: "copy", accelerator: "CmdOrCtrl+C" },
           { role: "paste", accelerator: "CmdOrCtrl+V" },
-          { role: "selectAll", accelerator: "CmdOrCtrl+A" }
+          { role: "selectAll", accelerator: "CmdOrCtrl+A" },
+          { type: "separator" },
+          { role: "reload", accelerator: "CmdOrCtrl+R" }
         ]
       }
     ];
@@ -131,6 +133,13 @@ if (!gotTheLock) {
             if (!mainWindow.isVisible()) mainWindow.show();
             mainWindow.setAlwaysOnTop(true, "normal");
             mainWindow.focus();
+            return true;
+          }
+          return false;
+        },
+        reloadWindow: () => {
+          if (mainWindow) {
+            mainWindow.webContents.reload();
             return true;
           }
           return false;
