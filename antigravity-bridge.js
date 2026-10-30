@@ -196,13 +196,14 @@ async function callGemini(prompt, userApiKey, systemInstruction, engine = "gemin
 
   const isHigh = engine === "gemini-3.8-flash-high" || engine === "antigravity-gemini-3.8-flash-high";
   const models = isHigh
-    ? ["gemini-3.8-flash", "gemini-3.5-flash", "gemini-3.5-flash-lite", "gemini-2.5-flash", "gemini-flash-latest"]
-    : ["gemini-3.5-flash", "gemini-3.5-flash-lite", "gemini-3.8-flash", "gemini-2.5-flash", "gemini-flash-latest"];
+    ? ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-pro"]
+    : ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash"];
 
   const generationConfig = isHigh
     ? { temperature: 0.2, maxOutputTokens: 4096, thinkingConfig: { thinkingBudget: 2048 } }
     : { temperature: 0.2, maxOutputTokens: 2048 };
 
+  const effectiveSystem = systemInstruction || "Eres Gemini 3.8 Flash HIGH, un modelo de lenguaje avanzado desarrollado por Google DeepMind, funcionando como asistente en Ghost AI (Antigravity). Responde con precisión y rigor.";
   let lastErr = null;
 
   for (const model of models) {
@@ -210,8 +211,8 @@ async function callGemini(prompt, userApiKey, systemInstruction, engine = "gemin
       const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
       const contents = [{ role: "user", parts: [{ text: prompt }] }];
       const bodyPayload = { contents, generationConfig };
-      if (systemInstruction) {
-        bodyPayload.systemInstruction = { parts: [{ text: systemInstruction }] };
+      if (effectiveSystem) {
+        bodyPayload.systemInstruction = { parts: [{ text: effectiveSystem }] };
       }
 
       let res = await fetch(url, {

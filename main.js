@@ -527,11 +527,10 @@ ipcMain.handle("ai-request", async (_event, { message, documents, userApiKey, hi
 
   if (engine === "gemini-3.8-flash-high" || engine === "gemini-3.8-flash" || engine === "antigravity-gemini-3.8-flash-high" || engine === "antigravity") {
     modelsToTry = [
-      "gemini-3.8-flash",
-      "gemini-3.5-flash",
-      "gemini-3.5-flash-lite",
       "gemini-2.5-flash",
-      "gemini-flash-latest"
+      "gemini-2.0-flash",
+      "gemini-1.5-flash",
+      "gemini-1.5-pro"
     ];
     generationConfig = {
       temperature: 0.2,
@@ -540,11 +539,9 @@ ipcMain.handle("ai-request", async (_event, { message, documents, userApiKey, hi
     };
   } else {
     modelsToTry = [
-      "gemini-3.5-flash",
-      "gemini-3.5-flash-lite",
-      "gemini-3.8-flash",
       "gemini-2.5-flash",
-      "gemini-flash-latest"
+      "gemini-2.0-flash",
+      "gemini-1.5-flash"
     ];
     generationConfig = { temperature: 0.2, maxOutputTokens: 2048 };
   }
@@ -555,8 +552,10 @@ ipcMain.handle("ai-request", async (_event, { message, documents, userApiKey, hi
       log(`Calling model: ${model}`);
       const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
 
+      const sysPrompt = "Eres Gemini 3.8 Flash HIGH, un modelo de lenguaje avanzado desarrollado por Google DeepMind, funcionando como asistente inteligente y programador en Ghost AI (Antigravity). Responde siempre con precisión, claridad y rigor técnico.";
       let reqBody = {
         contents: apiContents,
+        systemInstruction: { parts: [{ text: sysPrompt }] },
         generationConfig: generationConfig
       };
 
