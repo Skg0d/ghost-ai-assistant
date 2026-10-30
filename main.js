@@ -276,7 +276,7 @@ ipcMain.handle("ai-request", async (_event, { message, documents, userApiKey, hi
   let historyText = "";
   if (Array.isArray(history) && history.length > 0) {
     historyText = history
-      .map((h) => `${h.role === "user" ? "Estudiante" : "Asistente"}: ${h.content}`)
+      .map((h) => `${h.role === "user" ? "Usuario" : "Antigravity"}: ${h.content}`)
       .join("\n\n");
   }
 
@@ -305,15 +305,11 @@ ${historyText ? `=== HISTORIAL RECIENTE DE LA CONVERSACIÓN ===\n${historyText}\
 CONSULTA DEL EXAMEN A RESPONDER:
 ${message}`;
   } else {
-    promptText = `OBJETIVO: Eres un asistente académico de excelencia para un examen universitario de ingeniería y sistemas.
-Debes responder cumpliendo con:
-- Máximo dominio conceptual y precisión técnica formal.
-- Desarrollo analítico y bien fundamentado.
-- Ejemplos prácticos y pertinentes.
-- Justificación técnica rigurosa de las decisiones.
-- Organización clara y estructurada.
+    promptText = `Eres Antigravity Ghost AI, un asistente de inteligencia artificial avanzado, programador experto y compañero de trabajo.
+Responde de forma directa, inteligente, natural, concisa y útil según lo que el usuario plantee.
+Mantén la continuidad con el historial de la conversación. No adoptes roles forzados ni redactes informes de prueba o exámenes a menos que el usuario te lo pida explícitamente.
 
-${historyText ? `=== HISTORIAL RECIENTE DE LA CONVERSACIÓN ===\n${historyText}\n=== FIN HISTORIAL ===\n\n` : ""}CONSULTA DEL EXAMEN A RESPONDER:
+${historyText ? `=== HISTORIAL DE LA CONVERSACIÓN ===\n${historyText}\n=== FIN HISTORIAL ===\n\n` : ""}MENSAJE DEL USUARIO:
 ${message}`;
   }
 

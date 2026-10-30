@@ -1740,7 +1740,7 @@
           message: text,
           documents: activeDocuments.map(d => ({ name: d.name, content: d.content })),
           userApiKey: apiKey,
-          history: conversationHistory.slice(-6),
+          history: conversationHistory.slice(-14),
           engine: engineSelectVal,
           conversationId: currentConversationId
         };
