@@ -24,7 +24,8 @@ function createWindow() {
     autoHideMenuBar: true,
     alwaysOnTop: true,
     backgroundColor: "#ffffff",
-    focusable: false, // Stealth: clicking does not steal focus from browser!
+    skipTaskbar: false,
+    focusable: true,
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),
       contextIsolation: true,
@@ -37,7 +38,9 @@ function createWindow() {
   mainWindow.setMenuBarVisibility(false);
   mainWindow.setAutoHideMenuBar(true);
   mainWindow.loadFile(path.join(__dirname, "index.html"));
-  mainWindow.setAlwaysOnTop(true, "status");
+  mainWindow.setAlwaysOnTop(true, "normal");
+  mainWindow.show();
+  mainWindow.focus();
 
   mainWindow.webContents.on("console-message", (_event, _level, message) => {
     log(`[Renderer] ${message}`);
@@ -85,7 +88,9 @@ if (!gotTheLock) {
 } else {
   app.on("second-instance", () => {
     if (mainWindow) {
+      if (mainWindow.isMinimized()) mainWindow.restore();
       if (!mainWindow.isVisible()) mainWindow.show();
+      mainWindow.setAlwaysOnTop(true, "normal");
       mainWindow.focus();
     }
   });
@@ -113,7 +118,24 @@ if (!gotTheLock) {
 
     // Start Antigravity Bridge Server for Remote Web & Word Sync
     try {
-      createBridgeServer(7777);
+      createBridgeServer(7777, {
+        getWindowInfo: () => mainWindow ? {
+          isVisible: mainWindow.isVisible(),
+          isMinimized: mainWindow.isMinimized(),
+          bounds: mainWindow.getBounds(),
+          isAlwaysOnTop: mainWindow.isAlwaysOnTop()
+        } : null,
+        showWindow: () => {
+          if (mainWindow) {
+            if (mainWindow.isMinimized()) mainWindow.restore();
+            if (!mainWindow.isVisible()) mainWindow.show();
+            mainWindow.setAlwaysOnTop(true, "normal");
+            mainWindow.focus();
+            return true;
+          }
+          return false;
+        }
+      });
       log("Antigravity Bridge server initialized on port 7777");
     } catch (err) {
       log("Bridge server init error: " + err.message);
@@ -125,7 +147,10 @@ if (!gotTheLock) {
       if (mainWindow.isVisible()) {
         mainWindow.hide();
       } else {
+        if (mainWindow.isMinimized()) mainWindow.restore();
         mainWindow.show();
+        mainWindow.setAlwaysOnTop(true, "normal");
+        mainWindow.focus();
       }
     });
 

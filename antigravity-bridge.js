@@ -247,7 +247,7 @@ async function callGemini(prompt, userApiKey, systemInstruction, engine = "gemin
 }
 
 // Create HTTP Server
-function createBridgeServer(port = DEFAULT_PORT) {
+function createBridgeServer(port = DEFAULT_PORT, options = {}) {
   const server = http.createServer(async (req, res) => {
     // Enable CORS for Word Add-in and external mobile clients
     res.setHeader("Access-Control-Allow-Origin", "*");
@@ -262,6 +262,22 @@ function createBridgeServer(port = DEFAULT_PORT) {
 
     const parsedUrl = new URL(req.url, `http://localhost:${port}`);
     const pathname = parsedUrl.pathname;
+
+    // Window control endpoints
+    if (pathname === "/api/window/show") {
+      const result = options.showWindow ? options.showWindow() : false;
+      const info = options.getWindowInfo ? options.getWindowInfo() : null;
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ ok: true, showed: result, info }));
+      return;
+    }
+
+    if (pathname === "/api/window") {
+      const info = options.getWindowInfo ? options.getWindowInfo() : null;
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ ok: true, info }));
+      return;
+    }
 
     // 1. Status endpoint
     if (pathname === "/api/status" && req.method === "GET") {
